@@ -2,6 +2,11 @@ package com.pdf2tz.server.error;
 
 import org.springframework.http.HttpStatus;
 
+/**
+ * Коды системных ошибок программы.
+ *
+ * <p>Используются при выбросах {@link AppException}
+ */
 public enum ErrorCode {
     /* Codes */
     PDF_READ_ERROR(HttpStatus.BAD_REQUEST),
