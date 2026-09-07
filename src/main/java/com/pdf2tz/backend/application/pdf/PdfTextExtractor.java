@@ -24,6 +24,15 @@ public class PdfTextExtractor {
             );
         }
 
+        String contentType = file.getContentType();
+
+        if (contentType == null || !contentType.equals("application/pdf")) {
+            throw AppException.build(
+                    ErrorCode.UNSUPPORTED_FILE_TYPE,
+                    "Поддерживаются файлы только PDF-формата"
+            );
+        }
+
         byte[] content;
 
         try {
