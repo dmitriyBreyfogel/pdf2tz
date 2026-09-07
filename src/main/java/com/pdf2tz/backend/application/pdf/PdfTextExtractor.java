@@ -31,7 +31,7 @@ public class PdfTextExtractor {
         }
         catch (Exception e) {
             throw AppException.build(
-                    ErrorCode.PDF_READ_ERROR,
+                    ErrorCode.FILE_READ_ERROR,
                     "Не удалось прочитать файл",
                     Map.of("details", e.getMessage())
             );
