@@ -1,6 +1,6 @@
-package com.pdf2tz.server.api;
+package com.pdf2tz.backend.api;
 
-import com.pdf2tz.server.error.AppException;
+import com.pdf2tz.backend.error.AppException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;

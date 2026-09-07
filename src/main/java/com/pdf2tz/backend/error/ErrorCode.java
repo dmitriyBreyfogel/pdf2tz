@@ -1,4 +1,4 @@
-package com.pdf2tz.server.error;
+package com.pdf2tz.backend.error;
 
 import org.springframework.http.HttpStatus;
 

@@ -1,6 +1,6 @@
-package com.pdf2tz.server.application.pdf;
+package com.pdf2tz.backend.application.pdf;
 
-import com.pdf2tz.server.application.ports.PdfReaderPort;
+import com.pdf2tz.backend.application.ports.PdfReaderPort;
 import org.springframework.stereotype.Service;
 
 @Service

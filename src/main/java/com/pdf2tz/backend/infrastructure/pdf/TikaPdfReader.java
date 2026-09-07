@@ -1,8 +1,8 @@
-package com.pdf2tz.server.infrastructure.pdf;
+package com.pdf2tz.backend.infrastructure.pdf;
 
-import com.pdf2tz.server.application.ports.PdfReaderPort;
-import com.pdf2tz.server.error.AppException;
-import com.pdf2tz.server.error.ErrorCode;
+import com.pdf2tz.backend.application.ports.PdfReaderPort;
+import com.pdf2tz.backend.error.AppException;
+import com.pdf2tz.backend.error.ErrorCode;
 import org.apache.tika.io.TikaInputStream;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.parser.ParseContext;

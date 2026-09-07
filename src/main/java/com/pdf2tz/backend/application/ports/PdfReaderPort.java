@@ -1,4 +1,4 @@
-package com.pdf2tz.server.application.ports;
+package com.pdf2tz.backend.application.ports;
 
 public interface PdfReaderPort {
 
