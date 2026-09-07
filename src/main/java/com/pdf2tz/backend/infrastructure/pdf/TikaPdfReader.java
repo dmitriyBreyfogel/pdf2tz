@@ -1,5 +1,6 @@
 package com.pdf2tz.backend.infrastructure.pdf;
 
+import com.pdf2tz.backend.application.pdf.model.ExtractedDocument;
 import com.pdf2tz.backend.application.ports.PdfReaderPort;
 import com.pdf2tz.backend.error.AppException;
 import com.pdf2tz.backend.error.ErrorCode;
@@ -17,9 +18,9 @@ import java.util.Map;
 public class TikaPdfReader implements PdfReaderPort {
 
     @Override
-    public String read(byte[] component) {
+    public ExtractedDocument read(byte[] component) {
         try {
-            BodyContentHandler handler = new BodyContentHandler(-1);
+            PageCollectingContentHandler handler = new PageCollectingContentHandler();
             Metadata metadata = new Metadata();
             ParseContext context = new ParseContext();
 
@@ -33,7 +34,7 @@ public class TikaPdfReader implements PdfReaderPort {
                 parser.parse(input, handler, metadata, context);
             }
 
-            return handler.toString();
+            return new ExtractedDocument(handler.getPages());
 
         } catch (Exception e) {
             throw AppException.build(
