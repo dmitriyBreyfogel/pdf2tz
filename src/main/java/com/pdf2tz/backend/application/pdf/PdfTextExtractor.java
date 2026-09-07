@@ -1,5 +1,6 @@
 package com.pdf2tz.backend.application.pdf;
 
+import com.pdf2tz.backend.application.pdf.model.ExtractedDocument;
 import com.pdf2tz.backend.application.ports.PdfReaderPort;
 import com.pdf2tz.backend.error.AppException;
 import com.pdf2tz.backend.error.ErrorCode;
@@ -16,7 +17,7 @@ public class PdfTextExtractor {
         this.pdfReaderPort = pdfReaderPort;
     }
 
-    public String extract(MultipartFile file) {
+    public ExtractedDocument extract(MultipartFile file) {
         if (file.isEmpty()) {
             throw AppException.build(
                     ErrorCode.FILE_EMPTY,
