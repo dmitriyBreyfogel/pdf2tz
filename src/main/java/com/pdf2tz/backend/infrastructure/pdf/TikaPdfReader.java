@@ -5,9 +5,9 @@ import com.pdf2tz.backend.error.AppException;
 import com.pdf2tz.backend.error.ErrorCode;
 import org.apache.tika.io.TikaInputStream;
 import org.apache.tika.metadata.Metadata;
+import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
 import org.apache.tika.parser.ocr.TesseractOCRConfig;
-import org.apache.tika.parser.pdf.PDFParser;
 import org.apache.tika.sax.BodyContentHandler;
 import org.springframework.stereotype.Component;
 
@@ -27,7 +27,7 @@ public class TikaPdfReader implements PdfReaderPort {
             ocrConfig.setLanguage("rus+eng");
             context.set(TesseractOCRConfig.class, ocrConfig);
 
-            PDFParser parser = new PDFParser();
+            AutoDetectParser parser = new AutoDetectParser();
 
             try (TikaInputStream input = TikaInputStream.get(component)) {
                 parser.parse(input, handler, metadata, context);
