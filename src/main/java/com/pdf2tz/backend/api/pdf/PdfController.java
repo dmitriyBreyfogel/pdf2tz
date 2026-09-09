@@ -3,7 +3,7 @@ package com.pdf2tz.backend.api.pdf;
 import com.pdf2tz.backend.api.pdf.dto.PdfResponseDto;
 import com.pdf2tz.backend.api.pdf.mapper.PdfResponseMapper;
 import com.pdf2tz.backend.application.pdf.PdfTextExtractor;
-import com.pdf2tz.backend.application.pdf.model.ExtractedDocument;
+import com.pdf2tz.backend.application.pdf.model.cleaning.CleanedDocument;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -28,7 +28,7 @@ public class PdfController implements PdfApi {
     @Override
     public ResponseEntity<PdfResponseDto> extractText(MultipartFile file) {
         byte[] content = pdfUploadReader.read(file);
-        ExtractedDocument document = textExtractor.extract(content);
+        CleanedDocument document = textExtractor.extract(content);
 
         return ResponseEntity.ok(pdfResponseMapper.toResponse(document));
     }

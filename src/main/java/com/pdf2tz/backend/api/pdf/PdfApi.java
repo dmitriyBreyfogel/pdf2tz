@@ -16,7 +16,7 @@ public interface PdfApi {
     /**
      * Извлечение текста из PDF-файла
      * @param file PDF-файл
-     * @return ответ с извлечённым текстом по страницам
+     * @return ответ с очищенным текстом по страницам
      * @throws com.pdf2tz.backend.error.AppException с кодом:
      *  <ul>
      *      <li>{@code FILE_EMPTY} - файл пуст</li>
