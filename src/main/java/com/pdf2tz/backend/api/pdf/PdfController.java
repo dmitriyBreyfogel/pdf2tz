@@ -13,15 +13,21 @@ import java.util.List;
 @RestController
 public class PdfController implements PdfApi {
 
+    private final PdfUploadReader pdfUploadReader;
     private final PdfTextExtractor textExtractor;
 
-    public PdfController(PdfTextExtractor textExtractor) {
+    public PdfController(
+            PdfUploadReader pdfUploadReader,
+            PdfTextExtractor textExtractor
+    ) {
+        this.pdfUploadReader = pdfUploadReader;
         this.textExtractor = textExtractor;
     }
 
     @Override
     public ResponseEntity<PdfResponseDto> extractText(MultipartFile file) {
-        ExtractedDocument document = textExtractor.extract(file);
+        byte[] content = pdfUploadReader.read(file);
+        ExtractedDocument document = textExtractor.extract(content);
 
         List<PdfPageResponseDto> pages = document.pages().stream()
                 .map(page -> new PdfPageResponseDto(

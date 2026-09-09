@@ -2,12 +2,9 @@ package com.pdf2tz.backend.application.pdf;
 
 import com.pdf2tz.backend.application.pdf.model.ExtractedDocument;
 import com.pdf2tz.backend.application.ports.PdfReaderPort;
-import com.pdf2tz.backend.error.AppException;
-import com.pdf2tz.backend.error.ErrorCode;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class PdfTextExtractor {
@@ -17,36 +14,14 @@ public class PdfTextExtractor {
         this.pdfReaderPort = pdfReaderPort;
     }
 
-    public ExtractedDocument extract(MultipartFile file) {
-        if (file.isEmpty()) {
-            throw AppException.build(
-                    ErrorCode.FILE_EMPTY,
-                    "Файл пуст"
-            );
-        }
-
-        String contentType = file.getContentType();
-
-        if (contentType == null || !contentType.equals("application/pdf")) {
-            throw AppException.build(
-                    ErrorCode.UNSUPPORTED_FILE_TYPE,
-                    "Поддерживаются файлы только PDF-формата"
-            );
-        }
-
-        byte[] content;
-
-        try {
-            content = file.getBytes();
-        }
-        catch (Exception e) {
-            throw AppException.build(
-                    ErrorCode.FILE_READ_ERROR,
-                    "Не удалось прочитать файл",
-                    Map.of("details", e.getMessage())
-            );
-        }
-
+    /**
+     * Извлекает текстовое содержимое PDF-документа.
+     *
+     * @param content байтовое представление PDF-файла
+     * @return извлечённое содержимое документа
+     */
+    public ExtractedDocument extract(byte[] content) {
+        Objects.requireNonNull(content, "PDF content must not be null");
         return pdfReaderPort.read(content);
     }
 }
