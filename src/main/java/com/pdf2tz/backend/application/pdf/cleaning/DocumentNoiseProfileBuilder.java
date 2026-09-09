@@ -5,13 +5,12 @@ import com.pdf2tz.backend.application.pdf.model.ExtractedPage;
 import com.pdf2tz.backend.application.pdf.model.cleaning.DocumentNoiseProfile;
 import org.springframework.stereotype.Component;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -33,10 +32,13 @@ public class DocumentNoiseProfileBuilder {
     private static final double LINE_NOISE_PAGE_RATIO = 0.35;
 
     /**
-     * Более строгая доля страниц для строки, которая повторяется не только
-     * в начале или конце страницы.
+     * Минимальная доля страниц для коротких строк, похожих на фрагменты
+     * распавшегося водяного знака.
+     *
+     * <p>Такие строки опасно удалять по одной: короткий фрагмент может быть
+     * полезным значением таблицы. Поэтому порог намеренно высокий.</p>
      */
-    private static final double STRONG_LINE_NOISE_PAGE_RATIO = 0.75;
+    private static final double FRAGMENTED_LINE_NOISE_PAGE_RATIO = 0.75;
 
     /**
      * Минимальная доля страниц, на которых фрагмент внутри строки должен
@@ -56,6 +58,28 @@ public class DocumentNoiseProfileBuilder {
     private static final int MIN_LINE_LENGTH = 8;
 
     /**
+     * Минимальная длина короткой строки, которую можно рассматривать как
+     * фрагмент распавшегося водяного знака.
+     */
+    private static final int MIN_FRAGMENTED_LINE_LENGTH = 2;
+
+    /**
+     * Максимальная длина короткой строки, которую можно рассматривать как
+     * фрагмент распавшегося водяного знака.
+     */
+    private static final int MAX_FRAGMENTED_LINE_LENGTH = 7;
+
+    /**
+     * Минимальное количество разных коротких повторяющихся строк, нужное
+     * для включения режима очистки распавшегося водяного знака.
+     *
+     * <p>Одна-две короткие повторяющиеся строки ещё не доказывают наличие
+     * watermark. Кластер из нескольких таких строк уже является сильным
+     * признаком, что PDF-слой разбил один водяной знак на мелкие части.</p>
+     */
+    private static final int MIN_FRAGMENTED_LINE_NOISE_GROUP_SIZE = 6;
+
+    /**
      * Количество строк сверху и снизу страницы, которые считаются зоной
      * вероятных колонтитулов.
      */
@@ -69,16 +93,47 @@ public class DocumentNoiseProfileBuilder {
     private static final int MIN_INLINE_OCCURRENCES = 3;
 
     /**
-     * Минимальная длина inline-фрагмента.
-     * Короткие слова и устойчивые медицинские термины не должны удаляться
-     * только из-за частого появления.
+     * Минимальная длина URL-подобного фрагмента для inline-удаления.
+     *
+     * <p>Короткие обрывки доменов вроде {@code r.go} или {@code v.ru} могут
+     * появляться из распавшегося watermark. Их нельзя удалять внутри строк,
+     * иначе можно повредить полезный текст. Такие обрывки обрабатываются
+     * только как отдельные строковые фрагменты.</p>
      */
-    private static final int MIN_INLINE_LENGTH = 24;
+    private static final int MIN_URL_FRAGMENT_LENGTH = 8;
 
     /**
-     * Размер фрагмента в словах для поиска повторяющихся inline-кандидатов.
+     * Короткие самостоятельные значения, которые нельзя считать шумом только
+     * из-за повторяемости на страницах.
+     *
+     * <p>Список не описывает конкретный watermark. Он защищает типовые
+     * табличные значения и единицы измерения от удаления при обработке
+     * медицинских инструкций.</p>
      */
-    private static final int INLINE_FRAGMENT_WORD_COUNT = 4;
+    private static final Set<String> PROTECTED_SHORT_LINES = Set.of(
+            "да",
+            "нет",
+            "yes",
+            "no",
+            "on",
+            "off",
+            "мл",
+            "мг",
+            "мкг",
+            "кг",
+            "мм",
+            "см",
+            "мин",
+            "сек",
+            "ml",
+            "mg",
+            "mcg",
+            "kg",
+            "mm",
+            "cm",
+            "min",
+            "sec"
+    );
 
     /**
      * Шаблон для поиска URL и доменных имён внутри строк.
@@ -118,18 +173,24 @@ public class DocumentNoiseProfileBuilder {
      * ошибочно принята за служебный шум.</p>
      *
      * <p>Повторяющаяся строка считается шумом только при дополнительных
-     * признаках: она часто находится в верхней/нижней части страницы,
-     * встречается почти по всему документу или содержит URL/домен.</p>
+     * признаках: она часто находится в верхней/нижней части страницы или
+     * содержит URL/домен. Короткие фрагменты распавшегося watermark
+     * анализируются отдельно.</p>
      */
     private Set<String> findLineNoise(ExtractedDocument document) {
         Map<String, Set<Integer>> linePages = new HashMap<>();
         Map<String, Set<Integer>> edgeLinePages = new HashMap<>();
+        Map<String, Set<Integer>> fragmentedLinePages = new HashMap<>();
 
         for (ExtractedPage page : document.pages()) {
             List<String> lines = normalizedLines(page.text());
 
             for (int index = 0; index < lines.size(); index++) {
                 String line = lines.get(index);
+
+                if (isFragmentedLineNoiseCandidate(line)) {
+                    registerOccurrence(fragmentedLinePages, line, page.pageNumber());
+                }
 
                 if (line.length() < MIN_LINE_LENGTH) {
                     continue;
@@ -148,12 +209,6 @@ public class DocumentNoiseProfileBuilder {
                 LINE_NOISE_PAGE_RATIO,
                 MIN_LINE_OCCURRENCES
         );
-        int strongMinPageCount = minPageCount(
-                document.pages().size(),
-                STRONG_LINE_NOISE_PAGE_RATIO,
-                MIN_LINE_OCCURRENCES
-        );
-
         Set<String> result = new HashSet<>();
 
         linePages.forEach((line, pageNumbers) -> {
@@ -163,34 +218,71 @@ public class DocumentNoiseProfileBuilder {
                     .size();
 
             boolean repeatedOnPageEdge = edgeOccurrenceCount >= minPageCount;
-            boolean repeatedAlmostEverywhere = pageOccurrenceCount >= strongMinPageCount;
             boolean containsUrl = containsUrlLikeFragment(line);
 
             if (pageOccurrenceCount >= minPageCount
-                    && (repeatedOnPageEdge || repeatedAlmostEverywhere || containsUrl)
+                    && (repeatedOnPageEdge || containsUrl)
                     && isSafeLineNoise(line)) {
                 result.add(line);
             }
         });
 
+        result.addAll(findFragmentedLineNoise(
+                fragmentedLinePages,
+                document.pages().size()
+        ));
+
         return result;
+    }
+
+    /**
+     * Находит короткие строки, на которые PDF/OCR может разбить один водяной знак.
+     *
+     * <p>Метод работает только при наличии группы таких строк. Это снижает риск
+     * удалить полезное короткое значение, которое случайно повторилось на многих
+     * страницах. Найденные фрагменты попадают именно в {@code lineNoise}, а не в
+     * {@code inlineNoise}: их можно удалять только как самостоятельные строки.</p>
+     */
+    private Set<String> findFragmentedLineNoise(
+            Map<String, Set<Integer>> fragmentedLinePages,
+            int pageCount
+    ) {
+        int minPageCount = minPageCount(
+                pageCount,
+                FRAGMENTED_LINE_NOISE_PAGE_RATIO,
+                MIN_LINE_OCCURRENCES
+        );
+
+        Set<String> candidates = new HashSet<>();
+
+        fragmentedLinePages.forEach((line, pageNumbers) -> {
+            if (pageNumbers.size() >= minPageCount) {
+                candidates.add(line);
+            }
+        });
+
+        if (candidates.size() < MIN_FRAGMENTED_LINE_NOISE_GROUP_SIZE) {
+            return Set.of();
+        }
+
+        return candidates;
     }
 
     /**
      * Находит фрагменты, которые нужно удалять внутри полезных строк.
      *
      * <p>Такой шум опаснее обычного строкового шума, потому что очистка будет
-     * вырезать часть строки или ячейки таблицы. Поэтому для inline-фрагментов
-     * используется более строгий порог повторяемости.</p>
+     * вырезать часть строки или ячейки таблицы. Поэтому inline-режим сейчас
+     * ограничен только надёжными URL/доменными фрагментами и строгим порогом
+     * повторяемости.</p>
      */
     private Set<String> findInlineNoise(ExtractedDocument document) {
         Map<String, Set<Integer>> fragmentPages = new HashMap<>();
 
         for (ExtractedPage page : document.pages()) {
-            normalizedLines(page.text()).forEach(line -> {
-                collectUrlFragments(line, page.pageNumber(), fragmentPages);
-                collectWordFragments(line, page.pageNumber(), fragmentPages);
-            });
+            normalizedLines(page.text()).forEach(line ->
+                    collectUrlFragments(line, page.pageNumber(), fragmentPages)
+            );
         }
 
         int minPageCount = minPageCount(
@@ -226,38 +318,8 @@ public class DocumentNoiseProfileBuilder {
 
         while (matcher.find()) {
             String fragment = normalizeForCompare(matcher.group());
-            registerOccurrence(fragmentPages, fragment, pageNumber);
-        }
-    }
 
-    /**
-     * Собирает повторяющиеся фрагменты из последовательностей слов.
-     *
-     * <p>Метод использует скользящее окно: из строки берётся несколько слов
-     * подряд, затем окно сдвигается на одно слово. Так можно найти фрагмент
-     * водяного знака даже тогда, когда он вклинился внутрь обычного текста.</p>
-     */
-    private void collectWordFragments(
-            String line,
-            int pageNumber,
-            Map<String, Set<Integer>> fragmentPages
-    ) {
-        List<String> words = Arrays.stream(line.split("\\s+"))
-                .map(this::normalizeWord)
-                .filter(word -> !word.isBlank())
-                .toList();
-
-        if (words.size() < INLINE_FRAGMENT_WORD_COUNT) {
-            return;
-        }
-
-        for (int index = 0; index <= words.size() - INLINE_FRAGMENT_WORD_COUNT; index++) {
-            String fragment = String.join(
-                    " ",
-                    words.subList(index, index + INLINE_FRAGMENT_WORD_COUNT)
-            );
-
-            if (fragment.length() >= MIN_INLINE_LENGTH) {
+            if (isReliableUrlFragment(fragment)) {
                 registerOccurrence(fragmentPages, fragment, pageNumber);
             }
         }
@@ -316,6 +378,22 @@ public class DocumentNoiseProfileBuilder {
         return hasLetters(fragment) && !isSectionHeading(fragment);
     }
 
+    private boolean isFragmentedLineNoiseCandidate(String line) {
+        int length = line.length();
+
+        return length >= MIN_FRAGMENTED_LINE_LENGTH
+                && length <= MAX_FRAGMENTED_LINE_LENGTH
+                && hasLetters(line)
+                && !containsDigit(line)
+                && !isSectionHeading(line)
+                && !isProtectedShortLine(line);
+    }
+
+    private boolean isReliableUrlFragment(String fragment) {
+        return fragment.length() >= MIN_URL_FRAGMENT_LENGTH
+                && (startsWithUrlPrefix(fragment) || containsAsciiLetter(fragment));
+    }
+
     private boolean containsUrlLikeFragment(String text) {
         return URL_PATTERN.matcher(text).find();
     }
@@ -326,6 +404,27 @@ public class DocumentNoiseProfileBuilder {
 
     private boolean hasLetters(String text) {
         return text.codePoints().anyMatch(Character::isLetter);
+    }
+
+    private boolean containsDigit(String text) {
+        return text.codePoints().anyMatch(Character::isDigit);
+    }
+
+    private boolean isProtectedShortLine(String line) {
+        return PROTECTED_SHORT_LINES.contains(normalizeWord(line));
+    }
+
+    private boolean startsWithUrlPrefix(String text) {
+        return text.startsWith("http://")
+                || text.startsWith("https://")
+                || text.startsWith("www.");
+    }
+
+    private boolean containsAsciiLetter(String text) {
+        return text.chars().anyMatch(character ->
+                (character >= 'a' && character <= 'z')
+                        || (character >= 'A' && character <= 'Z')
+        );
     }
 
     private String normalizeWord(String word) {
