@@ -129,6 +129,31 @@ public class TextCleaner {
         return cleanInlineText(text, inlineNoise);
     }
 
+    /**
+     * Очищает самостоятельный текстовый фрагмент от строкового и inline-шума.
+     *
+     * <p>Метод предназначен для текста, который имеет собственные границы:
+     * строка документа, ячейка таблицы или другое атомарное значение. Если весь
+     * фрагмент совпадает со строковым шумом из {@link DocumentNoiseProfile#lineNoise()},
+     * возвращается пустая строка. Если фрагмент не является шумом целиком,
+     * внутри него удаляются только inline-фрагменты.</p>
+     *
+     * @param text исходный текстовый фрагмент
+     * @param noiseProfile профиль служебного шума конкретного документа
+     * @return очищенный текстовый фрагмент
+     */
+    public String cleanTextFragment(
+            String text,
+            DocumentNoiseProfile noiseProfile
+    ) {
+        Objects.requireNonNull(noiseProfile, "Noise profile must not be null");
+
+        Set<String> lineNoise = normalizeNoiseSet(noiseProfile.lineNoise());
+        List<String> inlineNoise = normalizeInlineNoise(noiseProfile.inlineNoise());
+
+        return cleanTextFragment(text, lineNoise, inlineNoise);
+    }
+
     private CleanedPage cleanPage(
             ExtractedPage page,
             Set<String> lineNoise,
@@ -136,10 +161,7 @@ public class TextCleaner {
     ) {
         String cleanedText = safeText(page.text())
                 .lines()
-                .map(this::normalizeLine)
-                .filter(line -> !line.isBlank())
-                .filter(line -> !isLineNoise(line, lineNoise))
-                .map(line -> cleanInlineText(line, inlineNoise))
+                .map(line -> cleanTextFragment(line, lineNoise, inlineNoise))
                 .filter(line -> !line.isBlank())
                 .collect(Collectors.joining(LINE_SEPARATOR));
 
@@ -147,6 +169,20 @@ public class TextCleaner {
                 page.pageNumber(),
                 cleanedText
         );
+    }
+
+    private String cleanTextFragment(
+            String text,
+            Set<String> lineNoise,
+            List<String> inlineNoise
+    ) {
+        String normalizedText = normalizeLine(text);
+
+        if (normalizedText.isBlank() || isLineNoise(normalizedText, lineNoise)) {
+            return "";
+        }
+
+        return cleanInlineText(normalizedText, inlineNoise);
     }
 
     /**
