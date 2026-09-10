@@ -5,6 +5,7 @@ import com.pdf2tz.backend.application.pdf.model.table.ParsedTable;
 import com.pdf2tz.backend.application.pdf.model.table.TableCandidate;
 import com.pdf2tz.backend.application.pdf.model.table.TableFragment;
 import com.pdf2tz.backend.application.ports.PdfTableExtractorPort;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Objects;
@@ -18,6 +19,7 @@ import java.util.Objects;
  * PDF-библиотеки: Tabula, PDFBox или другой инструмент скрываются за
  * {@link PdfTableExtractorPort}.</p>
  */
+@Service
 public class PdfTableParsingService {
 
     private final PdfTableExtractorPort tableExtractorPort;
