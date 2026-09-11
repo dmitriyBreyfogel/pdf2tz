@@ -18,7 +18,7 @@ class DocumentNoiseProfileBuilderTest {
     private final TextCleaner textCleaner = new TextCleaner();
 
     @Test
-    void detectsFragmentedWatermarkAsLineNoiseOnly() {
+    void detectsFragmentedWatermarkAndRepeatedDomainFragments() {
         ExtractedDocument document = documentWithRepeatedText("""
                 пол
                 учен
@@ -31,6 +31,7 @@ class DocumentNoiseProfileBuilderTest {
                 r.go
                 v.ru
                 Полезный текст страницы %1$d.
+                Useful inline fragment v.ru must be removed from page %1$d.
                 Дозировка по инструкции сохраняется.
                 Дополнительная строка страницы %1$d.
                 Описание продолжается на странице %1$d.
@@ -43,9 +44,12 @@ class DocumentNoiseProfileBuilderTest {
 
         assertTrue(noiseProfile.lineNoise().contains("пол"));
         assertTrue(noiseProfile.lineNoise().contains("v.ru"));
-        assertFalse(noiseProfile.inlineNoise().contains("v.ru"));
+        assertTrue(noiseProfile.inlineNoise().contains("v.ru"));
         assertFalse(cleanedText.contains("\nпол\n"));
         assertFalse(cleanedText.contains("\nv.ru\n"));
+        assertFalse(cleanedText.contains("Useful inline fragment v.ru must be removed"));
+        assertTrue(cleanedText.contains("Useful inline fragment"));
+        assertTrue(cleanedText.contains("must be removed from page"));
         assertTrue(cleanedText.contains("Дозировка по инструкции сохраняется."));
     }
 

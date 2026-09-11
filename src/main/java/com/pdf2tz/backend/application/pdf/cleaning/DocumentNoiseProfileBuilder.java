@@ -93,14 +93,13 @@ public class DocumentNoiseProfileBuilder {
     private static final int MIN_INLINE_OCCURRENCES = 3;
 
     /**
-     * Минимальная длина URL-подобного фрагмента для inline-удаления.
+     * Минимальная длина доменного фрагмента для inline-удаления.
      *
-     * <p>Короткие обрывки доменов вроде {@code r.go} или {@code v.ru} могут
-     * появляться из распавшегося watermark. Их нельзя удалять внутри строк,
-     * иначе можно повредить полезный текст. Такие обрывки обрабатываются
-     * только как отдельные строковые фрагменты.</p>
+     * <p>Короткие обрывки доменов вроде {@code r.go} или {@code v.ru} часто появляются из распавшегося
+     * watermark и особенно заметны внутри табличных ячеек. Они попадают в inline-шум только при высокой
+     * повторяемости по страницам документа, поэтому единичные полезные значения не должны удаляться.</p>
      */
-    private static final int MIN_URL_FRAGMENT_LENGTH = 8;
+    private static final int MIN_DOMAIN_FRAGMENT_LENGTH = 4;
 
     /**
      * Короткие самостоятельные значения, которые нельзя считать шумом только
@@ -140,7 +139,7 @@ public class DocumentNoiseProfileBuilder {
      * Такие фрагменты часто относятся к водяным знакам и служебным подписям.
      */
     private static final Pattern URL_PATTERN = Pattern.compile(
-            "(https?://\\S+|www\\.\\S+|\\b[\\p{L}\\p{N}_-]+(?:\\.[\\p{L}\\p{N}_-]+)*\\.[\\p{L}]{2,}(?:/\\S*)?)",
+            "(https?://\\S+|www\\.\\S+|\\b[\\p{L}\\p{N}_-]+(?:\\.[\\p{L}\\p{N}_-]+)*\\.[\\p{L}]{2,}(?:/\\S*)?|(?<!\\S)\\.[\\p{L}]{2,}\\b)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE | Pattern.UNICODE_CHARACTER_CLASS
     );
 
@@ -390,8 +389,9 @@ public class DocumentNoiseProfileBuilder {
     }
 
     private boolean isReliableUrlFragment(String fragment) {
-        return fragment.length() >= MIN_URL_FRAGMENT_LENGTH
-                && (startsWithUrlPrefix(fragment) || containsAsciiLetter(fragment));
+        return startsWithUrlPrefix(fragment)
+                || isStandaloneTopLevelDomain(fragment)
+                || isShortDomainFragment(fragment);
     }
 
     private boolean containsUrlLikeFragment(String text) {
@@ -418,6 +418,16 @@ public class DocumentNoiseProfileBuilder {
         return text.startsWith("http://")
                 || text.startsWith("https://")
                 || text.startsWith("www.");
+    }
+
+    private boolean isStandaloneTopLevelDomain(String text) {
+        return text.matches("\\.[\\p{L}]{2,}");
+    }
+
+    private boolean isShortDomainFragment(String text) {
+        return text.length() >= MIN_DOMAIN_FRAGMENT_LENGTH
+                && text.contains(".")
+                && containsAsciiLetter(text);
     }
 
     private boolean containsAsciiLetter(String text) {
