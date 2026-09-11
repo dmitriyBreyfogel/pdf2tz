@@ -66,6 +66,45 @@ class TableNormalizerTest {
     }
 
     @Test
+    void removesColumnsThatAreBlankAfterCleaning() {
+        TableCandidate candidate = candidate(
+                area(1, 10),
+                row("", "Таблица 1", ".ru", ""),
+                row("", "Температура воздуха, °С", "+10-+35", "")
+        );
+
+        List<TableFragment> fragments = normalizer.normalize(List.of(candidate), emptyNoiseProfile());
+        TableFragment fragment = fragments.get(0);
+
+        assertEquals(2, fragment.columnCount());
+        assertEquals("Таблица 1", cellText(fragment, 0, 0));
+        assertEquals("", cellText(fragment, 0, 1));
+        assertEquals("Температура воздуха, °С", cellText(fragment, 1, 0));
+        assertEquals("+10-+35", cellText(fragment, 1, 1));
+    }
+
+    @Test
+    void removesDerivedAsciiWatermarkFragmentsFromCells() {
+        DocumentNoiseProfile noiseProfile = new DocumentNoiseProfile(
+                Set.of("adzo", "oszd", "ravn", "r.go", "v.ru", "w.r", "ww"),
+                Set.of("r.go", "v.ru")
+        );
+        TableCandidate candidate = candidate(
+                area(1, 10),
+                row("No Наименование изделия sz d", "rav Количество gov"),
+                row("DIN", "VGA")
+        );
+
+        List<TableFragment> fragments = normalizer.normalize(List.of(candidate), noiseProfile);
+        TableFragment fragment = fragments.get(0);
+
+        assertEquals("No Наименование изделия", cellText(fragment, 0, 0));
+        assertEquals("Количество", cellText(fragment, 0, 1));
+        assertEquals("DIN", cellText(fragment, 1, 0));
+        assertEquals("VGA", cellText(fragment, 1, 1));
+    }
+
+    @Test
     void skipsCandidateThatBecomesEmptyAfterCleaning() {
         DocumentNoiseProfile noiseProfile = new DocumentNoiseProfile(
                 Set.of("watermark"),

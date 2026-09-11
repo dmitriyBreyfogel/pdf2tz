@@ -20,8 +20,9 @@ import java.util.Optional;
  * <p>Normalizer работает после {@link TableCandidateSelector}: на вход должны
  * приходить уже выбранные кандидаты без явных дублей. Этот класс не объединяет
  * таблицы между страницами и не пытается восстановить сложные переносы строк.
- * Его ответственность - очистить ячейки, удалить пустые строки и привести
- * каждую таблицу к прямоугольному виду, пригодному для {@link TableFragment}.</p>
+ * Его ответственность - очистить ячейки, удалить пустые строки, убрать пустые
+ * технические колонки и привести каждую таблицу к прямоугольному виду,
+ * пригодному для {@link TableFragment}.</p>
  */
 @Component
 public class TableNormalizer {
@@ -70,10 +71,9 @@ public class TableNormalizer {
             return Optional.empty();
         }
 
-        int columnCount = maxColumnCount(cleanedRows);
-        List<TableRow> normalizedRows = cleanedRows.stream()
-                .map(row -> padRow(row, columnCount))
-                .toList();
+        List<TableRow> normalizedRows = removeBlankColumns(
+                padRows(cleanedRows)
+        );
 
         return Optional.of(new TableFragment(
                 candidate.area(),
@@ -86,7 +86,7 @@ public class TableNormalizer {
             DocumentNoiseProfile noiseProfile
     ) {
         List<TableCell> cleanedCells = row.cells().stream()
-                .map(cell -> new TableCell(textCleaner.cleanTextFragment(
+                .map(cell -> new TableCell(textCleaner.cleanTableCellText(
                         cell.text(),
                         noiseProfile
                 )))
@@ -108,6 +108,61 @@ public class TableNormalizer {
         while (cells.size() < columnCount) {
             cells.add(new TableCell(""));
         }
+
+        return new TableRow(cells);
+    }
+
+    private List<TableRow> padRows(List<TableRow> rows) {
+        int columnCount = maxColumnCount(rows);
+
+        return rows.stream()
+                .map(row -> padRow(row, columnCount))
+                .toList();
+    }
+
+    /**
+     * Удаляет колонки, которые после очистки не содержат ни одной значимой ячейки.
+     *
+     * <p>Tabula часто возвращает технические пустые колонки: ведущие отступы, хвосты справа или отдельные
+     * колонки, где после удаления watermark не осталось текста. Такие колонки не несут структуры таблицы,
+     * но раздувают DTO и мешают сравнению фрагментов при будущей склейке.</p>
+     */
+    private List<TableRow> removeBlankColumns(List<TableRow> rows) {
+        List<Integer> meaningfulColumnIndexes = meaningfulColumnIndexes(rows);
+
+        return rows.stream()
+                .map(row -> keepColumns(row, meaningfulColumnIndexes))
+                .toList();
+    }
+
+    private List<Integer> meaningfulColumnIndexes(List<TableRow> rows) {
+        int columnCount = maxColumnCount(rows);
+        List<Integer> indexes = new ArrayList<>();
+
+        for (int columnIndex = 0; columnIndex < columnCount; columnIndex++) {
+            if (hasNonBlankCellAt(rows, columnIndex)) {
+                indexes.add(columnIndex);
+            }
+        }
+
+        return indexes;
+    }
+
+    private boolean hasNonBlankCellAt(
+            List<TableRow> rows,
+            int columnIndex
+    ) {
+        return rows.stream()
+                .anyMatch(row -> !row.cells().get(columnIndex).isBlank());
+    }
+
+    private TableRow keepColumns(
+            TableRow row,
+            List<Integer> columnIndexes
+    ) {
+        List<TableCell> cells = columnIndexes.stream()
+                .map(columnIndex -> row.cells().get(columnIndex))
+                .toList();
 
         return new TableRow(cells);
     }
