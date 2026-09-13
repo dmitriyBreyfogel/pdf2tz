@@ -41,7 +41,14 @@ public class PdfTableResponseMapper {
         );
     }
 
-    private PdfTableResponseDto toTableResponse(
+    /**
+     * Собирает DTO одной таблицы документа.
+     *
+     * @param tableNumber порядковый номер таблицы в ответе
+     * @param table целостная таблица документа
+     * @return DTO таблицы
+     */
+    public PdfTableResponseDto toTableResponse(
             int tableNumber,
             ParsedTable table
     ) {
