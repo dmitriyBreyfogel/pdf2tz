@@ -3,7 +3,7 @@ package com.pdf2tz.backend.application.pdf;
 import com.pdf2tz.backend.application.pdf.assembly.ParsedDocumentAssembler;
 import com.pdf2tz.backend.application.pdf.cleaning.DocumentNoiseProfileBuilder;
 import com.pdf2tz.backend.application.pdf.cleaning.TextCleaner;
-import com.pdf2tz.backend.application.pdf.model.ExtractedDocument;
+import com.pdf2tz.backend.application.pdf.model.ExtractedTextDocument;
 import com.pdf2tz.backend.application.pdf.model.cleaning.CleanedDocument;
 import com.pdf2tz.backend.application.pdf.model.cleaning.DocumentNoiseProfile;
 import com.pdf2tz.backend.application.pdf.model.document.ParsedDocument;
@@ -64,7 +64,7 @@ public class PdfParsingPipeline {
     public ParsedDocument parse(byte[] content) {
         Objects.requireNonNull(content, "PDF content must not be null");
 
-        ExtractedDocument extractedDocument = pdfReaderPort.read(content);
+        ExtractedTextDocument extractedDocument = pdfReaderPort.read(content);
         DocumentNoiseProfile noiseProfile = documentNoiseProfileBuilder.build(extractedDocument);
         CleanedDocument cleanedDocument = textCleaner.cleanDocument(extractedDocument, noiseProfile);
         List<ParsedTable> tables = pdfTableParsingService.parseTables(content, noiseProfile);

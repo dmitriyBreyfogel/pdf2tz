@@ -1,7 +1,7 @@
 package com.pdf2tz.backend.application.pdf.cleaning;
 
-import com.pdf2tz.backend.application.pdf.model.ExtractedDocument;
-import com.pdf2tz.backend.application.pdf.model.ExtractedPage;
+import com.pdf2tz.backend.application.pdf.model.ExtractedTextDocument;
+import com.pdf2tz.backend.application.pdf.model.ExtractedTextPage;
 import com.pdf2tz.backend.application.pdf.model.cleaning.CleanedDocument;
 import com.pdf2tz.backend.application.pdf.model.cleaning.DocumentNoiseProfile;
 import org.junit.jupiter.api.Test;
@@ -19,7 +19,7 @@ class DocumentNoiseProfileBuilderTest {
 
     @Test
     void detectsFragmentedWatermarkAndRepeatedDomainFragments() {
-        ExtractedDocument document = documentWithRepeatedText("""
+        ExtractedTextDocument document = documentWithRepeatedText("""
                 пол
                 учен
                 офиц
@@ -55,7 +55,7 @@ class DocumentNoiseProfileBuilderTest {
 
     @Test
     void keepsSingleRepeatedShortUsefulLine() {
-        ExtractedDocument document = documentWithRepeatedText("""
+        ExtractedTextDocument document = documentWithRepeatedText("""
                 Да
                 Полезное описание страницы %d.
                 """);
@@ -68,15 +68,15 @@ class DocumentNoiseProfileBuilderTest {
         assertTrue(cleanedText.contains("Да"));
     }
 
-    private ExtractedDocument documentWithRepeatedText(String pageTemplate) {
-        List<ExtractedPage> pages = IntStream.rangeClosed(1, 10)
-                .mapToObj(pageNumber -> new ExtractedPage(
+    private ExtractedTextDocument documentWithRepeatedText(String pageTemplate) {
+        List<ExtractedTextPage> pages = IntStream.rangeClosed(1, 10)
+                .mapToObj(pageNumber -> new ExtractedTextPage(
                         pageNumber,
                         pageTemplate.formatted(pageNumber)
                 ))
                 .toList();
 
-        return new ExtractedDocument(pages);
+        return new ExtractedTextDocument(pages);
     }
 
     private String joinPages(CleanedDocument document) {

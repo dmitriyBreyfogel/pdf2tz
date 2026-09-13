@@ -1,6 +1,6 @@
 package com.pdf2tz.backend.application.ports;
 
-import com.pdf2tz.backend.application.pdf.model.ExtractedDocument;
+import com.pdf2tz.backend.application.pdf.model.ExtractedTextDocument;
 
 public interface PdfReaderPort {
 
@@ -10,5 +10,5 @@ public interface PdfReaderPort {
      * @param content байтовое представление PDF-файла
      * @return извлечённое содержимое документа
      */
-    ExtractedDocument read(byte[] content);
+    ExtractedTextDocument read(byte[] content);
 }

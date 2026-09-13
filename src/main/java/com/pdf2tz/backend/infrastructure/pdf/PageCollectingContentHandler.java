@@ -1,6 +1,6 @@
 package com.pdf2tz.backend.infrastructure.pdf;
 
-import com.pdf2tz.backend.application.pdf.model.ExtractedPage;
+import com.pdf2tz.backend.application.pdf.model.ExtractedTextPage;
 import org.xml.sax.Attributes;
 import org.xml.sax.helpers.DefaultHandler;
 
@@ -14,7 +14,7 @@ import java.util.Set;
  * <p>Tika передаёт результат разбора как последовательность SAX-событий XHTML.
  * Каждая страница PDF представлена элементом {@code <div class="page">}.
  * При входе в этот элемент обработчик начинает накапливать текст, а при выходе
- * создаёт {@link ExtractedPage}.</p>
+ * создаёт {@link ExtractedTextPage}.</p>
  *
  * <p>Класс не разбирает PDF самостоятельно и не формирует ошибки приложения:
  * его задача ограничена преобразованием SAX-событий в постраничную модель.
@@ -26,7 +26,7 @@ final class PageCollectingContentHandler extends DefaultHandler {
             "p", "div", "br", "li", "tr"
     );
 
-    private final List<ExtractedPage> pages = new ArrayList<>();
+    private final List<ExtractedTextPage> pages = new ArrayList<>();
 
     private StringBuilder currentPageText;
 
@@ -79,7 +79,7 @@ final class PageCollectingContentHandler extends DefaultHandler {
         pageDepth--;
 
         if (pageDepth == 0) {
-            pages.add(new ExtractedPage(
+            pages.add(new ExtractedTextPage(
                     pages.size() + 1,
                     normalize(currentPageText.toString())
             ));
@@ -91,7 +91,7 @@ final class PageCollectingContentHandler extends DefaultHandler {
     @Override
     public void endDocument() {
         if (currentPageText != null) {
-            pages.add(new ExtractedPage(
+            pages.add(new ExtractedTextPage(
                     pages.size() + 1,
                     normalize(currentPageText.toString())
             ));
@@ -103,7 +103,7 @@ final class PageCollectingContentHandler extends DefaultHandler {
      *
      * @return неизменяемый список извлечённых страниц в исходном порядке
      */
-    List<ExtractedPage> getPages() {
+    List<ExtractedTextPage> getPages() {
         return List.copyOf(pages);
     }
 

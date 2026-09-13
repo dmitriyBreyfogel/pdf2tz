@@ -1,7 +1,7 @@
 package com.pdf2tz.backend.application.pdf.cleaning;
 
-import com.pdf2tz.backend.application.pdf.model.ExtractedDocument;
-import com.pdf2tz.backend.application.pdf.model.ExtractedPage;
+import com.pdf2tz.backend.application.pdf.model.ExtractedTextDocument;
+import com.pdf2tz.backend.application.pdf.model.ExtractedTextPage;
 import com.pdf2tz.backend.application.pdf.model.cleaning.CleanedDocument;
 import com.pdf2tz.backend.application.pdf.model.cleaning.CleanedPage;
 import com.pdf2tz.backend.application.pdf.model.cleaning.DocumentNoiseProfile;
@@ -178,7 +178,7 @@ public class TextCleaner {
      * @return документ с очищенными страницами
      */
     public CleanedDocument cleanDocument(
-            ExtractedDocument document,
+            ExtractedTextDocument document,
             DocumentNoiseProfile noiseProfile
     ) {
         Objects.requireNonNull(document, "Document must not be null");
@@ -206,7 +206,7 @@ public class TextCleaner {
      * @return страница с очищенным текстом и исходным номером страницы
      */
     public CleanedPage cleanPage(
-            ExtractedPage page,
+            ExtractedTextPage page,
             DocumentNoiseProfile noiseProfile
     ) {
         Objects.requireNonNull(page, "Page must not be null");
@@ -317,7 +317,7 @@ public class TextCleaner {
     }
 
     private CleanedPage cleanPage(
-            ExtractedPage page,
+            ExtractedTextPage page,
             Set<String> lineNoise,
             List<String> inlineNoise
     ) {

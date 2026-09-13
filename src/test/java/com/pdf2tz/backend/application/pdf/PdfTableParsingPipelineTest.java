@@ -2,8 +2,8 @@ package com.pdf2tz.backend.application.pdf;
 
 import com.pdf2tz.backend.application.pdf.cleaning.DocumentNoiseProfileBuilder;
 import com.pdf2tz.backend.application.pdf.cleaning.TextCleaner;
-import com.pdf2tz.backend.application.pdf.model.ExtractedDocument;
-import com.pdf2tz.backend.application.pdf.model.ExtractedPage;
+import com.pdf2tz.backend.application.pdf.model.ExtractedTextDocument;
+import com.pdf2tz.backend.application.pdf.model.ExtractedTextPage;
 import com.pdf2tz.backend.application.pdf.model.table.ParsedTable;
 import com.pdf2tz.backend.application.pdf.model.table.TableArea;
 import com.pdf2tz.backend.application.pdf.model.table.TableCandidate;
@@ -31,10 +31,10 @@ class PdfTableParsingPipelineTest {
 
     @Test
     void parsesTablesUsingDocumentNoiseProfile() {
-        RecordingPdfReaderPort readerPort = new RecordingPdfReaderPort(new ExtractedDocument(List.of(
-                new ExtractedPage(1, "example.com\nПолезный текст первой страницы"),
-                new ExtractedPage(2, "example.com\nПолезный текст второй страницы"),
-                new ExtractedPage(3, "example.com\nПолезный текст третьей страницы")
+        RecordingPdfReaderPort readerPort = new RecordingPdfReaderPort(new ExtractedTextDocument(List.of(
+                new ExtractedTextPage(1, "example.com\nПолезный текст первой страницы"),
+                new ExtractedTextPage(2, "example.com\nПолезный текст второй страницы"),
+                new ExtractedTextPage(3, "example.com\nПолезный текст третьей страницы")
         )));
         RecordingPdfTableExtractorPort tableExtractorPort = new RecordingPdfTableExtractorPort(List.of(
                 candidate(
@@ -57,8 +57,8 @@ class PdfTableParsingPipelineTest {
     @Test
     void rejectsNullPdfContent() {
         PdfTableParsingPipeline pipeline = pipeline(
-                new RecordingPdfReaderPort(new ExtractedDocument(List.of(
-                        new ExtractedPage(1, "Текст")
+                new RecordingPdfReaderPort(new ExtractedTextDocument(List.of(
+                        new ExtractedTextPage(1, "Текст")
                 ))),
                 new RecordingPdfTableExtractorPort(List.of())
         );
@@ -125,15 +125,15 @@ class PdfTableParsingPipelineTest {
 
     private static class RecordingPdfReaderPort implements PdfReaderPort {
 
-        private final ExtractedDocument document;
+        private final ExtractedTextDocument document;
         private byte[] receivedContent;
 
-        private RecordingPdfReaderPort(ExtractedDocument document) {
+        private RecordingPdfReaderPort(ExtractedTextDocument document) {
             this.document = document;
         }
 
         @Override
-        public ExtractedDocument read(byte[] content) {
+        public ExtractedTextDocument read(byte[] content) {
             receivedContent = content;
 
             return document;

@@ -3,8 +3,8 @@ package com.pdf2tz.backend.application.pdf;
 import com.pdf2tz.backend.application.pdf.assembly.ParsedDocumentAssembler;
 import com.pdf2tz.backend.application.pdf.cleaning.DocumentNoiseProfileBuilder;
 import com.pdf2tz.backend.application.pdf.cleaning.TextCleaner;
-import com.pdf2tz.backend.application.pdf.model.ExtractedDocument;
-import com.pdf2tz.backend.application.pdf.model.ExtractedPage;
+import com.pdf2tz.backend.application.pdf.model.ExtractedTextDocument;
+import com.pdf2tz.backend.application.pdf.model.ExtractedTextPage;
 import com.pdf2tz.backend.application.pdf.model.document.ParsedDocument;
 import com.pdf2tz.backend.application.pdf.model.document.TableBlock;
 import com.pdf2tz.backend.application.pdf.model.document.TextBlock;
@@ -41,8 +41,8 @@ class PdfParsingPipelineTest {
                 )
         ));
         PdfParsingPipeline pipeline = new PdfParsingPipeline(
-                new StubPdfReaderPort(new ExtractedDocument(List.of(
-                        new ExtractedPage(1, "Полезный текст страницы")
+                new StubPdfReaderPort(new ExtractedTextDocument(List.of(
+                        new ExtractedTextPage(1, "Полезный текст страницы")
                 ))),
                 new DocumentNoiseProfileBuilder(),
                 new TextCleaner(),
@@ -73,11 +73,11 @@ class PdfParsingPipelineTest {
     }
 
     private record StubPdfReaderPort(
-            ExtractedDocument document
+            ExtractedTextDocument document
     ) implements PdfReaderPort {
 
         @Override
-        public ExtractedDocument read(byte[] content) {
+        public ExtractedTextDocument read(byte[] content) {
             return document;
         }
     }

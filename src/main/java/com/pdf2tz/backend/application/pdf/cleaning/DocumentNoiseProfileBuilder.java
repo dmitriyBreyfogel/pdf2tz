@@ -1,7 +1,7 @@
 package com.pdf2tz.backend.application.pdf.cleaning;
 
-import com.pdf2tz.backend.application.pdf.model.ExtractedDocument;
-import com.pdf2tz.backend.application.pdf.model.ExtractedPage;
+import com.pdf2tz.backend.application.pdf.model.ExtractedTextDocument;
+import com.pdf2tz.backend.application.pdf.model.ExtractedTextPage;
 import com.pdf2tz.backend.application.pdf.model.cleaning.DocumentNoiseProfile;
 import org.springframework.stereotype.Component;
 
@@ -153,7 +153,7 @@ public class DocumentNoiseProfileBuilder {
      * @param document сырой постраничный текст PDF-документа
      * @return профиль найденного служебного шума
      */
-    public DocumentNoiseProfile build(ExtractedDocument document) {
+    public DocumentNoiseProfile build(ExtractedTextDocument document) {
         Set<String> lineNoise = findLineNoise(document);
         Set<String> inlineNoise = findInlineNoise(document);
 
@@ -176,12 +176,12 @@ public class DocumentNoiseProfileBuilder {
      * содержит URL/домен. Короткие фрагменты распавшегося watermark
      * анализируются отдельно.</p>
      */
-    private Set<String> findLineNoise(ExtractedDocument document) {
+    private Set<String> findLineNoise(ExtractedTextDocument document) {
         Map<String, Set<Integer>> linePages = new HashMap<>();
         Map<String, Set<Integer>> edgeLinePages = new HashMap<>();
         Map<String, Set<Integer>> fragmentedLinePages = new HashMap<>();
 
-        for (ExtractedPage page : document.pages()) {
+        for (ExtractedTextPage page : document.pages()) {
             List<String> lines = normalizedLines(page.text());
 
             for (int index = 0; index < lines.size(); index++) {
@@ -275,10 +275,10 @@ public class DocumentNoiseProfileBuilder {
      * ограничен только надёжными URL/доменными фрагментами и строгим порогом
      * повторяемости.</p>
      */
-    private Set<String> findInlineNoise(ExtractedDocument document) {
+    private Set<String> findInlineNoise(ExtractedTextDocument document) {
         Map<String, Set<Integer>> fragmentPages = new HashMap<>();
 
-        for (ExtractedPage page : document.pages()) {
+        for (ExtractedTextPage page : document.pages()) {
             normalizedLines(page.text()).forEach(line ->
                     collectUrlFragments(line, page.pageNumber(), fragmentPages)
             );
