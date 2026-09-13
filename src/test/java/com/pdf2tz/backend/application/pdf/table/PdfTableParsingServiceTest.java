@@ -103,6 +103,7 @@ class PdfTableParsingServiceTest {
                 extractorPort,
                 new TableCandidateSelector(),
                 new TableNormalizer(new TextCleaner()),
+                new TableQualityFilter(),
                 new TableAssembler()
         );
     }

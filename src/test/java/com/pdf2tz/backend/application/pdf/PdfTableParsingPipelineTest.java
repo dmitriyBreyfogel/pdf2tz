@@ -13,6 +13,7 @@ import com.pdf2tz.backend.application.pdf.table.PdfTableParsingService;
 import com.pdf2tz.backend.application.pdf.table.TableAssembler;
 import com.pdf2tz.backend.application.pdf.table.TableCandidateSelector;
 import com.pdf2tz.backend.application.pdf.table.TableNormalizer;
+import com.pdf2tz.backend.application.pdf.table.TableQualityFilter;
 import com.pdf2tz.backend.application.ports.PdfReaderPort;
 import com.pdf2tz.backend.application.ports.PdfTableExtractorPort;
 import org.junit.jupiter.api.Test;
@@ -76,6 +77,7 @@ class PdfTableParsingPipelineTest {
                 tableExtractorPort,
                 new TableCandidateSelector(),
                 new TableNormalizer(new TextCleaner()),
+                new TableQualityFilter(),
                 new TableAssembler()
         );
 

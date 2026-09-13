@@ -14,8 +14,8 @@ import java.util.Objects;
  * Координирует полный application-flow обработки таблиц PDF-документа.
  *
  * <p>Сервис связывает внешний извлекатель таблиц с внутренними этапами
- * обработки: выбором пригодных кандидатов, нормализацией фрагментов и сборкой
- * целостных таблиц. На этом уровне не должно быть деталей конкретной
+ * обработки: выбором пригодных кандидатов, нормализацией фрагментов, фильтрацией
+ * слабых табличных результатов и сборкой целостных таблиц. На этом уровне не должно быть деталей конкретной
  * PDF-библиотеки: Tabula, PDFBox или другой инструмент скрываются за
  * {@link PdfTableExtractorPort}.</p>
  */
@@ -25,12 +25,14 @@ public class PdfTableParsingService {
     private final PdfTableExtractorPort tableExtractorPort;
     private final TableCandidateSelector tableCandidateSelector;
     private final TableNormalizer tableNormalizer;
+    private final TableQualityFilter tableQualityFilter;
     private final TableAssembler tableAssembler;
 
     public PdfTableParsingService(
             PdfTableExtractorPort tableExtractorPort,
             TableCandidateSelector tableCandidateSelector,
             TableNormalizer tableNormalizer,
+            TableQualityFilter tableQualityFilter,
             TableAssembler tableAssembler
     ) {
         this.tableExtractorPort = Objects.requireNonNull(
@@ -44,6 +46,10 @@ public class PdfTableParsingService {
         this.tableNormalizer = Objects.requireNonNull(
                 tableNormalizer,
                 "Table normalizer must not be null"
+        );
+        this.tableQualityFilter = Objects.requireNonNull(
+                tableQualityFilter,
+                "Table quality filter must not be null"
         );
         this.tableAssembler = Objects.requireNonNull(
                 tableAssembler,
@@ -73,7 +79,8 @@ public class PdfTableParsingService {
         List<TableCandidate> candidates = tableExtractorPort.extract(content);
         List<TableCandidate> selectedCandidates = tableCandidateSelector.select(candidates);
         List<TableFragment> fragments = tableNormalizer.normalize(selectedCandidates, noiseProfile);
+        List<TableFragment> qualityFragments = tableQualityFilter.filter(fragments);
 
-        return tableAssembler.assemble(fragments);
+        return tableAssembler.assemble(qualityFragments);
     }
 }
