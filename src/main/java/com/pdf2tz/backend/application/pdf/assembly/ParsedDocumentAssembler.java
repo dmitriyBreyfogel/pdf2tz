@@ -5,18 +5,25 @@ import com.pdf2tz.backend.application.pdf.model.cleaning.CleanedPage;
 import com.pdf2tz.backend.application.pdf.model.document.DocumentBlock;
 import com.pdf2tz.backend.application.pdf.model.document.ParsedDocument;
 import com.pdf2tz.backend.application.pdf.model.document.ParsedPage;
+import com.pdf2tz.backend.application.pdf.model.document.TableBlock;
 import com.pdf2tz.backend.application.pdf.model.document.TextBlock;
+import com.pdf2tz.backend.application.pdf.model.table.ParsedTable;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
- * Собирает готовый документ из очищенного постраничного текста.
+ * Собирает готовый документ из очищенного постраничного текста и структурированных таблиц.
  *
- * <p>На текущем этапе каждая непустая очищенная страница превращается в один
- * {@link TextBlock}. Табличные блоки будут добавлены отдельной итерацией,
- * когда появится стабильное извлечение и нормализация таблиц.</p>
+ * <p>Каждая непустая очищенная страница превращается в {@link TextBlock}, а
+ * целостные таблицы добавляются на страницу, с которой они начинаются. Если
+ * таблица переносится на несколько страниц, она всё равно остаётся одним
+ * {@link TableBlock}, потому что логически это одна таблица документа.</p>
  */
 @Component
 public class ParsedDocumentAssembler {
@@ -32,26 +39,69 @@ public class ParsedDocumentAssembler {
      * @return готовый документ с текстовыми блоками
      */
     public ParsedDocument assemble(CleanedDocument cleanedDocument) {
+        return assemble(cleanedDocument, List.of());
+    }
+
+    /**
+     * Преобразует очищенный документ и найденные таблицы в готовую блочную модель.
+     *
+     * <p>Пока текстовая модель не хранит координаты строк и абзацев, assembler
+     * не пытается встроить таблицу внутрь текста страницы по точному месту в PDF.
+     * Поэтому текстовый блок страницы добавляется первым, а табличные блоки этой
+     * страницы - после него в порядке расположения таблиц сверху вниз.</p>
+     *
+     * @param cleanedDocument документ после очистки PDF-текста
+     * @param tables целостные таблицы документа
+     * @return готовый документ с текстовыми и табличными блоками
+     */
+    public ParsedDocument assemble(
+            CleanedDocument cleanedDocument,
+            List<ParsedTable> tables
+    ) {
         Objects.requireNonNull(cleanedDocument, "Cleaned document must not be null");
+        Objects.requireNonNull(tables, "Parsed tables must not be null");
+
+        Map<Integer, List<ParsedTable>> tablesByStartPage = tables.stream()
+                .map(table -> Objects.requireNonNull(table, "Parsed table must not be null"))
+                .sorted(this::compareTablesByReadingOrder)
+                .collect(Collectors.groupingBy(ParsedTable::startPageNumber));
 
         List<ParsedPage> pages = cleanedDocument.pages().stream()
                 .map(page -> new ParsedPage(
                         page.pageNumber(),
-                        buildPageBlocks(page)
+                        buildPageBlocks(page, tablesByStartPage.getOrDefault(page.pageNumber(), List.of()))
                 ))
                 .toList();
 
         return new ParsedDocument(pages);
     }
 
-    private List<DocumentBlock> buildPageBlocks(CleanedPage page) {
+    private List<DocumentBlock> buildPageBlocks(
+            CleanedPage page,
+            List<ParsedTable> tables
+    ) {
+        List<DocumentBlock> blocks = new ArrayList<>();
         String text = Objects.requireNonNull(page.text(), "Cleaned page text must not be null")
                 .trim();
 
-        if (text.isBlank()) {
-            return List.of();
+        if (!text.isBlank()) {
+            blocks.add(new TextBlock(text));
         }
 
-        return List.of(new TextBlock(text));
+        tables.stream()
+                .map(TableBlock::new)
+                .forEach(blocks::add);
+
+        return List.copyOf(blocks);
+    }
+
+    private int compareTablesByReadingOrder(
+            ParsedTable first,
+            ParsedTable second
+    ) {
+        return Comparator.comparingInt(ParsedTable::startPageNumber)
+                .thenComparingDouble(table -> table.fragments().get(0).area().top())
+                .thenComparingDouble(table -> table.fragments().get(0).area().left())
+                .compare(first, second);
     }
 }
