@@ -1,7 +1,9 @@
 package com.pdf2tz.backend.api.pdf;
 
+import com.pdf2tz.backend.api.pdf.dto.PdfParsedDocumentResponseDto;
 import com.pdf2tz.backend.api.pdf.dto.PdfResponseDto;
 import com.pdf2tz.backend.api.pdf.dto.PdfTablesResponseDto;
+import com.pdf2tz.backend.api.pdf.mapper.PdfParsedDocumentResponseMapper;
 import com.pdf2tz.backend.api.pdf.mapper.PdfResponseMapper;
 import com.pdf2tz.backend.api.pdf.mapper.PdfTableResponseMapper;
 import com.pdf2tz.backend.application.pdf.PdfParsingPipeline;
@@ -27,12 +29,16 @@ class PdfControllerTest {
     private final PdfTableParsingPipeline pdfTableParsingPipeline = mock(PdfTableParsingPipeline.class);
     private final PdfResponseMapper pdfResponseMapper = mock(PdfResponseMapper.class);
     private final PdfTableResponseMapper pdfTableResponseMapper = mock(PdfTableResponseMapper.class);
+    private final PdfParsedDocumentResponseMapper pdfParsedDocumentResponseMapper = mock(
+            PdfParsedDocumentResponseMapper.class
+    );
     private final PdfController controller = new PdfController(
             pdfUploadReader,
             pdfParsingPipeline,
             pdfTableParsingPipeline,
             pdfResponseMapper,
-            pdfTableResponseMapper
+            pdfTableResponseMapper,
+            pdfParsedDocumentResponseMapper
     );
 
     @Test
@@ -68,5 +74,23 @@ class PdfControllerTest {
 
         assertSame(response, result.getBody());
         verify(pdfParsingPipeline, never()).parse(content);
+    }
+
+    @Test
+    void parseDocumentUsesParsingPipelineAndParsedMapper() {
+        MultipartFile file = mock(MultipartFile.class);
+        byte[] content = new byte[]{1, 2, 3};
+        ParsedDocument document = mock(ParsedDocument.class);
+        PdfParsedDocumentResponseDto response = mock(PdfParsedDocumentResponseDto.class);
+
+        when(pdfUploadReader.read(file)).thenReturn(content);
+        when(pdfParsingPipeline.parse(content)).thenReturn(document);
+        when(pdfParsedDocumentResponseMapper.toResponse(document)).thenReturn(response);
+
+        ResponseEntity<PdfParsedDocumentResponseDto> result = controller.parseDocument(file);
+
+        assertSame(response, result.getBody());
+        verify(pdfTableParsingPipeline, never()).parseTables(content);
+        verify(pdfResponseMapper, never()).toResponse(document);
     }
 }

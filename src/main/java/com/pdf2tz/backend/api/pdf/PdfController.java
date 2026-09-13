@@ -1,7 +1,9 @@
 package com.pdf2tz.backend.api.pdf;
 
+import com.pdf2tz.backend.api.pdf.dto.PdfParsedDocumentResponseDto;
 import com.pdf2tz.backend.api.pdf.dto.PdfResponseDto;
 import com.pdf2tz.backend.api.pdf.dto.PdfTablesResponseDto;
+import com.pdf2tz.backend.api.pdf.mapper.PdfParsedDocumentResponseMapper;
 import com.pdf2tz.backend.api.pdf.mapper.PdfResponseMapper;
 import com.pdf2tz.backend.api.pdf.mapper.PdfTableResponseMapper;
 import com.pdf2tz.backend.application.pdf.PdfParsingPipeline;
@@ -22,19 +24,22 @@ public class PdfController implements PdfApi {
     private final PdfTableParsingPipeline pdfTableParsingPipeline;
     private final PdfResponseMapper pdfResponseMapper;
     private final PdfTableResponseMapper pdfTableResponseMapper;
+    private final PdfParsedDocumentResponseMapper pdfParsedDocumentResponseMapper;
 
     public PdfController(
             PdfUploadReader pdfUploadReader,
             PdfParsingPipeline pdfParsingPipeline,
             PdfTableParsingPipeline pdfTableParsingPipeline,
             PdfResponseMapper pdfResponseMapper,
-            PdfTableResponseMapper pdfTableResponseMapper
+            PdfTableResponseMapper pdfTableResponseMapper,
+            PdfParsedDocumentResponseMapper pdfParsedDocumentResponseMapper
     ) {
         this.pdfUploadReader = pdfUploadReader;
         this.pdfParsingPipeline = pdfParsingPipeline;
         this.pdfTableParsingPipeline = pdfTableParsingPipeline;
         this.pdfResponseMapper = pdfResponseMapper;
         this.pdfTableResponseMapper = pdfTableResponseMapper;
+        this.pdfParsedDocumentResponseMapper = pdfParsedDocumentResponseMapper;
     }
 
     @Override
@@ -51,5 +56,13 @@ public class PdfController implements PdfApi {
         List<ParsedTable> tables = pdfTableParsingPipeline.parseTables(content);
 
         return ResponseEntity.ok(pdfTableResponseMapper.toResponse(tables));
+    }
+
+    @Override
+    public ResponseEntity<PdfParsedDocumentResponseDto> parseDocument(MultipartFile file) {
+        byte[] content = pdfUploadReader.read(file);
+        ParsedDocument document = pdfParsingPipeline.parse(content);
+
+        return ResponseEntity.ok(pdfParsedDocumentResponseMapper.toResponse(document));
     }
 }
