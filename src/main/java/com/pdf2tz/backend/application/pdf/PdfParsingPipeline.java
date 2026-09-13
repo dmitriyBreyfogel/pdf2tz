@@ -7,17 +7,21 @@ import com.pdf2tz.backend.application.pdf.model.ExtractedDocument;
 import com.pdf2tz.backend.application.pdf.model.cleaning.CleanedDocument;
 import com.pdf2tz.backend.application.pdf.model.cleaning.DocumentNoiseProfile;
 import com.pdf2tz.backend.application.pdf.model.document.ParsedDocument;
+import com.pdf2tz.backend.application.pdf.model.table.ParsedTable;
+import com.pdf2tz.backend.application.pdf.table.PdfTableParsingService;
 import com.pdf2tz.backend.application.ports.PdfReaderPort;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Objects;
 
 /**
  * Координирует подготовку PDF-документа к дальнейшей обработке.
  *
- * <p>На текущей итерации pipeline читает PDF, строит профиль служебного шума,
- * очищает текст и собирает готовую блочную модель документа. Извлечение
- * таблиц будет подключено отдельным шагом позже.</p>
+ * <p>Pipeline читает PDF, строит профиль служебного шума, очищает текст,
+ * извлекает структурированные таблицы и собирает готовую блочную модель
+ * документа. Один и тот же профиль шума применяется к тексту и таблицам,
+ * чтобы watermark-и чистились единообразно.</p>
  */
 @Service
 public class PdfParsingPipeline {
@@ -25,18 +29,30 @@ public class PdfParsingPipeline {
     private final PdfReaderPort pdfReaderPort;
     private final DocumentNoiseProfileBuilder documentNoiseProfileBuilder;
     private final TextCleaner textCleaner;
+    private final PdfTableParsingService pdfTableParsingService;
     private final ParsedDocumentAssembler parsedDocumentAssembler;
 
     public PdfParsingPipeline(
             PdfReaderPort pdfReaderPort,
             DocumentNoiseProfileBuilder documentNoiseProfileBuilder,
             TextCleaner textCleaner,
+            PdfTableParsingService pdfTableParsingService,
             ParsedDocumentAssembler parsedDocumentAssembler
     ) {
-        this.pdfReaderPort = pdfReaderPort;
-        this.documentNoiseProfileBuilder = documentNoiseProfileBuilder;
-        this.textCleaner = textCleaner;
-        this.parsedDocumentAssembler = parsedDocumentAssembler;
+        this.pdfReaderPort = Objects.requireNonNull(pdfReaderPort, "PDF reader port must not be null");
+        this.documentNoiseProfileBuilder = Objects.requireNonNull(
+                documentNoiseProfileBuilder,
+                "Document noise profile builder must not be null"
+        );
+        this.textCleaner = Objects.requireNonNull(textCleaner, "Text cleaner must not be null");
+        this.pdfTableParsingService = Objects.requireNonNull(
+                pdfTableParsingService,
+                "PDF table parsing service must not be null"
+        );
+        this.parsedDocumentAssembler = Objects.requireNonNull(
+                parsedDocumentAssembler,
+                "Parsed document assembler must not be null"
+        );
     }
 
     /**
@@ -51,7 +67,8 @@ public class PdfParsingPipeline {
         ExtractedDocument extractedDocument = pdfReaderPort.read(content);
         DocumentNoiseProfile noiseProfile = documentNoiseProfileBuilder.build(extractedDocument);
         CleanedDocument cleanedDocument = textCleaner.cleanDocument(extractedDocument, noiseProfile);
+        List<ParsedTable> tables = pdfTableParsingService.parseTables(content, noiseProfile);
 
-        return parsedDocumentAssembler.assemble(cleanedDocument);
+        return parsedDocumentAssembler.assemble(cleanedDocument, tables);
     }
 }
