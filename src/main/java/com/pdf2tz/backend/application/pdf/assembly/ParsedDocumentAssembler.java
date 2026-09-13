@@ -28,6 +28,15 @@ import java.util.stream.Collectors;
 @Component
 public class ParsedDocumentAssembler {
 
+    private final TextTableOverlapCleaner textTableOverlapCleaner;
+
+    public ParsedDocumentAssembler(TextTableOverlapCleaner textTableOverlapCleaner) {
+        this.textTableOverlapCleaner = Objects.requireNonNull(
+                textTableOverlapCleaner,
+                "Text table overlap cleaner must not be null"
+        );
+    }
+
     /**
      * Преобразует очищенный документ в готовую блочную модель.
      *
@@ -69,7 +78,11 @@ public class ParsedDocumentAssembler {
         List<ParsedPage> pages = cleanedTextDocument.pages().stream()
                 .map(page -> new ParsedPage(
                         page.pageNumber(),
-                        buildPageBlocks(page, tablesByStartPage.getOrDefault(page.pageNumber(), List.of()))
+                        buildPageBlocks(
+                                page,
+                                tablesByStartPage.getOrDefault(page.pageNumber(), List.of()),
+                                tables
+                        )
                 ))
                 .toList();
 
@@ -78,17 +91,18 @@ public class ParsedDocumentAssembler {
 
     private List<DocumentBlock> buildPageBlocks(
             CleanedTextPage page,
-            List<ParsedTable> tables
+            List<ParsedTable> pageTables,
+            List<ParsedTable> documentTables
     ) {
         List<DocumentBlock> blocks = new ArrayList<>();
-        String text = Objects.requireNonNull(page.text(), "Cleaned text page text must not be null")
+        String text = textTableOverlapCleaner.removeOverlaps(page, documentTables)
                 .trim();
 
         if (!text.isBlank()) {
             blocks.add(new TextBlock(text));
         }
 
-        tables.stream()
+        pageTables.stream()
                 .map(TableBlock::new)
                 .forEach(blocks::add);
 

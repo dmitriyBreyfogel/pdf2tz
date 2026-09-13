@@ -1,6 +1,7 @@
 package com.pdf2tz.backend.application.pdf;
 
 import com.pdf2tz.backend.application.pdf.assembly.ParsedDocumentAssembler;
+import com.pdf2tz.backend.application.pdf.assembly.TextTableOverlapCleaner;
 import com.pdf2tz.backend.application.pdf.cleaning.DocumentNoiseProfileBuilder;
 import com.pdf2tz.backend.application.pdf.cleaning.TextCleaner;
 import com.pdf2tz.backend.application.pdf.model.ExtractedTextDocument;
@@ -47,7 +48,7 @@ class PdfParsingPipelineTest {
                 new DocumentNoiseProfileBuilder(),
                 new TextCleaner(),
                 tableParsingService(tableExtractorPort),
-                new ParsedDocumentAssembler()
+                new ParsedDocumentAssembler(new TextTableOverlapCleaner())
         );
 
         ParsedDocument parsedDocument = pipeline.parse(content);

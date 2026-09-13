@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ParsedDocumentAssemblerTest {
 
-    private final ParsedDocumentAssembler assembler = new ParsedDocumentAssembler();
+    private final ParsedDocumentAssembler assembler = new ParsedDocumentAssembler(new TextTableOverlapCleaner());
 
     @Test
     void convertsCleanedTextPagesToParsedPagesWithTextBlocks() {
@@ -125,6 +125,39 @@ class ParsedDocumentAssemblerTest {
 
         assertEquals(upperTable, firstBlock.table());
         assertEquals(lowerTable, secondBlock.table());
+    }
+
+    @Test
+    void removesStructuredTableRowsFromTextBlock() {
+        CleanedTextDocument cleanedTextDocument = new CleanedTextDocument(List.of(
+                new CleanedTextPage(1, """
+                        Описание перед таблицей
+                        Параметр Значение
+                        Описание после таблицы
+                        """)
+        ));
+        ParsedTable table = table(1, 100, 40);
+
+        ParsedDocument parsedDocument = assembler.assemble(
+                cleanedTextDocument,
+                List.of(table)
+        );
+
+        assertEquals(2, parsedDocument.pages().get(0).blocks().size());
+
+        TextBlock textBlock = assertInstanceOf(
+                TextBlock.class,
+                parsedDocument.pages().get(0).blocks().get(0)
+        );
+        TableBlock tableBlock = assertInstanceOf(
+                TableBlock.class,
+                parsedDocument.pages().get(0).blocks().get(1)
+        );
+
+        assertEquals("""
+                Описание перед таблицей
+                Описание после таблицы""", textBlock.text());
+        assertEquals(table, tableBlock.table());
     }
 
     private ParsedTable table(
