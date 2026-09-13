@@ -1,7 +1,7 @@
 package com.pdf2tz.backend.application.pdf.assembly;
 
-import com.pdf2tz.backend.application.pdf.model.cleaning.CleanedDocument;
-import com.pdf2tz.backend.application.pdf.model.cleaning.CleanedPage;
+import com.pdf2tz.backend.application.pdf.model.cleaning.CleanedTextDocument;
+import com.pdf2tz.backend.application.pdf.model.cleaning.CleanedTextPage;
 import com.pdf2tz.backend.application.pdf.model.document.TableBlock;
 import com.pdf2tz.backend.application.pdf.model.document.ParsedDocument;
 import com.pdf2tz.backend.application.pdf.model.document.TextBlock;
@@ -24,13 +24,13 @@ class ParsedDocumentAssemblerTest {
     private final ParsedDocumentAssembler assembler = new ParsedDocumentAssembler();
 
     @Test
-    void convertsCleanedPagesToParsedPagesWithTextBlocks() {
-        CleanedDocument cleanedDocument = new CleanedDocument(List.of(
-                new CleanedPage(1, "Первый очищенный текст"),
-                new CleanedPage(2, "  Второй очищенный текст  ")
+    void convertsCleanedTextPagesToParsedPagesWithTextBlocks() {
+        CleanedTextDocument cleanedTextDocument = new CleanedTextDocument(List.of(
+                new CleanedTextPage(1, "Первый очищенный текст"),
+                new CleanedTextPage(2, "  Второй очищенный текст  ")
         ));
 
-        ParsedDocument parsedDocument = assembler.assemble(cleanedDocument);
+        ParsedDocument parsedDocument = assembler.assemble(cleanedTextDocument);
 
         assertEquals(2, parsedDocument.pages().size());
         assertEquals(1, parsedDocument.pages().get(0).pageNumber());
@@ -53,13 +53,13 @@ class ParsedDocumentAssemblerTest {
 
     @Test
     void preservesBlankPagesWithoutCreatingEmptyBlocks() {
-        CleanedDocument cleanedDocument = new CleanedDocument(List.of(
-                new CleanedPage(1, ""),
-                new CleanedPage(2, "   "),
-                new CleanedPage(3, "Полезный текст")
+        CleanedTextDocument cleanedTextDocument = new CleanedTextDocument(List.of(
+                new CleanedTextPage(1, ""),
+                new CleanedTextPage(2, "   "),
+                new CleanedTextPage(3, "Полезный текст")
         ));
 
-        ParsedDocument parsedDocument = assembler.assemble(cleanedDocument);
+        ParsedDocument parsedDocument = assembler.assemble(cleanedTextDocument);
 
         assertEquals(3, parsedDocument.pages().size());
         assertTrue(parsedDocument.pages().get(0).blocks().isEmpty());
@@ -69,15 +69,15 @@ class ParsedDocumentAssemblerTest {
 
     @Test
     void addsTableBlocksToTableStartPages() {
-        CleanedDocument cleanedDocument = new CleanedDocument(List.of(
-                new CleanedPage(1, "Первая страница"),
-                new CleanedPage(2, "Вторая страница")
+        CleanedTextDocument cleanedTextDocument = new CleanedTextDocument(List.of(
+                new CleanedTextPage(1, "Первая страница"),
+                new CleanedTextPage(2, "Вторая страница")
         ));
         ParsedTable firstPageTable = table(1, 300, 40);
         ParsedTable secondPageTable = table(2, 100, 40);
 
         ParsedDocument parsedDocument = assembler.assemble(
-                cleanedDocument,
+                cleanedTextDocument,
                 List.of(secondPageTable, firstPageTable)
         );
 
@@ -101,14 +101,14 @@ class ParsedDocumentAssemblerTest {
 
     @Test
     void sortsTableBlocksByReadingOrderWithinPage() {
-        CleanedDocument cleanedDocument = new CleanedDocument(List.of(
-                new CleanedPage(1, "")
+        CleanedTextDocument cleanedTextDocument = new CleanedTextDocument(List.of(
+                new CleanedTextPage(1, "")
         ));
         ParsedTable lowerTable = table(1, 300, 40);
         ParsedTable upperTable = table(1, 100, 40);
 
         ParsedDocument parsedDocument = assembler.assemble(
-                cleanedDocument,
+                cleanedTextDocument,
                 List.of(lowerTable, upperTable)
         );
 

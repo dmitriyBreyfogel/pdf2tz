@@ -2,7 +2,7 @@ package com.pdf2tz.backend.application.pdf.cleaning;
 
 import com.pdf2tz.backend.application.pdf.model.ExtractedTextDocument;
 import com.pdf2tz.backend.application.pdf.model.ExtractedTextPage;
-import com.pdf2tz.backend.application.pdf.model.cleaning.CleanedDocument;
+import com.pdf2tz.backend.application.pdf.model.cleaning.CleanedTextDocument;
 import com.pdf2tz.backend.application.pdf.model.cleaning.DocumentNoiseProfile;
 import org.junit.jupiter.api.Test;
 
@@ -39,8 +39,8 @@ class DocumentNoiseProfileBuilderTest {
                 """);
 
         DocumentNoiseProfile noiseProfile = profileBuilder.build(document);
-        CleanedDocument cleanedDocument = textCleaner.cleanDocument(document, noiseProfile);
-        String cleanedText = joinPages(cleanedDocument);
+        CleanedTextDocument cleanedTextDocument = textCleaner.cleanDocument(document, noiseProfile);
+        String cleanedText = joinPages(cleanedTextDocument);
 
         assertTrue(noiseProfile.lineNoise().contains("пол"));
         assertTrue(noiseProfile.lineNoise().contains("v.ru"));
@@ -61,8 +61,8 @@ class DocumentNoiseProfileBuilderTest {
                 """);
 
         DocumentNoiseProfile noiseProfile = profileBuilder.build(document);
-        CleanedDocument cleanedDocument = textCleaner.cleanDocument(document, noiseProfile);
-        String cleanedText = joinPages(cleanedDocument);
+        CleanedTextDocument cleanedTextDocument = textCleaner.cleanDocument(document, noiseProfile);
+        String cleanedText = joinPages(cleanedTextDocument);
 
         assertFalse(noiseProfile.lineNoise().contains("да"));
         assertTrue(cleanedText.contains("Да"));
@@ -79,7 +79,7 @@ class DocumentNoiseProfileBuilderTest {
         return new ExtractedTextDocument(pages);
     }
 
-    private String joinPages(CleanedDocument document) {
+    private String joinPages(CleanedTextDocument document) {
         return document.pages().stream()
                 .map(page -> "\n" + page.text() + "\n")
                 .reduce("", String::concat);

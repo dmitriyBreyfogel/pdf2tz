@@ -2,8 +2,8 @@ package com.pdf2tz.backend.application.pdf.cleaning;
 
 import com.pdf2tz.backend.application.pdf.model.ExtractedTextDocument;
 import com.pdf2tz.backend.application.pdf.model.ExtractedTextPage;
-import com.pdf2tz.backend.application.pdf.model.cleaning.CleanedDocument;
-import com.pdf2tz.backend.application.pdf.model.cleaning.CleanedPage;
+import com.pdf2tz.backend.application.pdf.model.cleaning.CleanedTextDocument;
+import com.pdf2tz.backend.application.pdf.model.cleaning.CleanedTextPage;
 import com.pdf2tz.backend.application.pdf.model.cleaning.DocumentNoiseProfile;
 import org.springframework.stereotype.Component;
 
@@ -177,7 +177,7 @@ public class TextCleaner {
      * @param noiseProfile профиль служебного шума конкретного документа
      * @return документ с очищенными страницами
      */
-    public CleanedDocument cleanDocument(
+    public CleanedTextDocument cleanDocument(
             ExtractedTextDocument document,
             DocumentNoiseProfile noiseProfile
     ) {
@@ -187,11 +187,11 @@ public class TextCleaner {
         Set<String> lineNoise = normalizeNoiseSet(noiseProfile.lineNoise());
         List<String> inlineNoise = normalizeInlineNoise(noiseProfile.inlineNoise());
 
-        List<CleanedPage> pages = document.pages().stream()
+        List<CleanedTextPage> pages = document.pages().stream()
                 .map(page -> cleanPage(page, lineNoise, inlineNoise))
                 .toList();
 
-        return new CleanedDocument(pages);
+        return new CleanedTextDocument(pages);
     }
 
     /**
@@ -205,7 +205,7 @@ public class TextCleaner {
      * @param noiseProfile профиль служебного шума конкретного документа
      * @return страница с очищенным текстом и исходным номером страницы
      */
-    public CleanedPage cleanPage(
+    public CleanedTextPage cleanPage(
             ExtractedTextPage page,
             DocumentNoiseProfile noiseProfile
     ) {
@@ -316,7 +316,7 @@ public class TextCleaner {
         return cleanedText;
     }
 
-    private CleanedPage cleanPage(
+    private CleanedTextPage cleanPage(
             ExtractedTextPage page,
             Set<String> lineNoise,
             List<String> inlineNoise
@@ -327,7 +327,7 @@ public class TextCleaner {
                 .filter(line -> !line.isBlank())
                 .collect(Collectors.joining(LINE_SEPARATOR));
 
-        return new CleanedPage(
+        return new CleanedTextPage(
                 page.pageNumber(),
                 cleanedText
         );
