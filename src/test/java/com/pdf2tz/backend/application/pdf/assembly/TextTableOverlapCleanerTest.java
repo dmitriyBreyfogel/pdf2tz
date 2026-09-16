@@ -58,6 +58,31 @@ class TextTableOverlapCleanerTest {
     }
 
     @Test
+    void removesTableCellsSplitIntoSeparateTextLines() {
+        CleanedTextPage page = new CleanedTextPage(1, """
+                Описание страницы
+                Компания Dräger упоминается в обычном абзаце.
+                Fabius®plus
+                Dräger
+                Spirolog®
+                Конец страницы
+                """);
+        ParsedTable table = table(fragment(
+                area(1, 100, 40),
+                row("Товарный знак", "Владелец товарного знака"),
+                row("Fabius®plus", "Dräger"),
+                row("Spirolog®", "")
+        ));
+
+        String result = cleaner.removeOverlaps(page, List.of(table));
+
+        assertEquals("""
+                Описание страницы
+                Компания Dräger упоминается в обычном абзаце.
+                Конец страницы""", result);
+    }
+
+    @Test
     void keepsTextWithOnlyPartialTableWords() {
         CleanedTextPage page = new CleanedTextPage(1, """
                 Параметр вентиляции имеет важное значение для пациента.

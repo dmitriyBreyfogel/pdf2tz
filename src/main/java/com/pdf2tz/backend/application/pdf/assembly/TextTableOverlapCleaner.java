@@ -53,6 +53,16 @@ public class TextTableOverlapCleaner {
      */
     private static final int MIN_SINGLE_CELL_ROW_LENGTH = 20;
 
+    /**
+     * Минимальная длина отдельной ячейки, которую можно удалить из текста при точном совпадении строки.
+     *
+     * <p>Некоторые PDF хранят таблицу не построчно, а построчно-поячеечно: сначала
+     * текст первой ячейки, затем текст второй. Поэтому строка таблицы целиком не
+     * совпадает с одной строкой текстового слоя. Короткие значения вроде {@code O2}
+     * или {@code 1} не удаляются таким способом, чтобы не задеть обычный текст.</p>
+     */
+    private static final int MIN_EXACT_CELL_LINE_LENGTH = 6;
+
     private static final Pattern NON_ALPHANUMERIC_PATTERN = Pattern.compile("[^\\p{L}\\p{N}]+");
 
     /**
@@ -70,8 +80,9 @@ public class TextTableOverlapCleaner {
         Objects.requireNonNull(tables, "Parsed tables must not be null");
 
         List<TableRowSignature> rowSignatures = rowSignatures(page.pageNumber(), tables);
+        List<TableCellSignature> cellSignatures = cellSignatures(page.pageNumber(), tables);
 
-        if (rowSignatures.isEmpty()) {
+        if (rowSignatures.isEmpty() && cellSignatures.isEmpty()) {
             return Objects.requireNonNull(page.text(), "Cleaned text page text must not be null")
                     .trim();
         }
@@ -80,13 +91,14 @@ public class TextTableOverlapCleaner {
                 .lines()
                 .map(String::trim)
                 .filter(line -> !line.isBlank())
-                .filter(line -> !isTableRowDuplicate(line, rowSignatures))
+                .filter(line -> !isTableDuplicateLine(line, rowSignatures, cellSignatures))
                 .collect(Collectors.joining(LINE_SEPARATOR));
     }
 
-    private boolean isTableRowDuplicate(
+    private boolean isTableDuplicateLine(
             String line,
-            List<TableRowSignature> rowSignatures
+            List<TableRowSignature> rowSignatures,
+            List<TableCellSignature> cellSignatures
     ) {
         String lineCompact = compact(line);
 
@@ -95,6 +107,8 @@ public class TextTableOverlapCleaner {
         }
 
         return rowSignatures.stream()
+                .anyMatch(signature -> signature.matches(lineCompact))
+                || cellSignatures.stream()
                 .anyMatch(signature -> signature.matches(lineCompact));
     }
 
@@ -114,6 +128,28 @@ public class TextTableOverlapCleaner {
         return fragment.rows().stream()
                 .map(TableRowSignature::from)
                 .filter(TableRowSignature::isUsable)
+                .toList();
+    }
+
+    private List<TableCellSignature> cellSignatures(
+            int pageNumber,
+            List<ParsedTable> tables
+    ) {
+        return tables.stream()
+                .map(table -> Objects.requireNonNull(table, "Parsed table must not be null"))
+                .flatMap(table -> table.fragments().stream())
+                .filter(fragment -> fragment.pageNumber() == pageNumber)
+                .flatMap(fragment -> cellSignatures(fragment).stream())
+                .distinct()
+                .toList();
+    }
+
+    private List<TableCellSignature> cellSignatures(TableFragment fragment) {
+        return fragment.rows().stream()
+                .flatMap(row -> row.cells().stream())
+                .map(TableCell::text)
+                .map(TableCellSignature::from)
+                .filter(TableCellSignature::isUsable)
                 .toList();
     }
 
@@ -177,6 +213,22 @@ public class TextTableOverlapCleaner {
 
         private double coverageRatio(String lineCompact) {
             return (double) rowCompact.length() / lineCompact.length();
+        }
+    }
+
+    private record TableCellSignature(String cellCompact) {
+
+        private static TableCellSignature from(String cellText) {
+            return new TableCellSignature(compact(cellText));
+        }
+
+        private boolean isUsable() {
+            return cellCompact.length() >= MIN_EXACT_CELL_LINE_LENGTH
+                    && cellCompact.codePoints().anyMatch(Character::isLetter);
+        }
+
+        private boolean matches(String lineCompact) {
+            return lineCompact.equals(cellCompact);
         }
     }
 }
