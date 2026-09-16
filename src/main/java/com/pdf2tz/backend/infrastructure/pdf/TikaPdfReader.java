@@ -8,7 +8,6 @@ import org.apache.tika.io.TikaInputStream;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
-import org.apache.tika.parser.pdf.OcrConfig;
 import org.apache.tika.parser.pdf.PDFParserConfig;
 import org.springframework.stereotype.Component;
 
@@ -18,16 +17,14 @@ import java.util.Map;
 public class TikaPdfReader implements PdfReaderPort {
 
     /**
-     * Явно отключает OCR для PDF-документов.
+     * Настраивает Tika на чтение только текстового слоя PDF.
      *
-     * <p>Для медицинских инструкций с нормальным текстовым слоем OCR поверх
-     * страницы вреден: Tika может добавить к корректному русскому тексту второй
-     * OCR-дубль, где кириллица распознана похожими латинскими символами. Поэтому
-     * базовый reader берёт только нативный текст PDF. OCR-fallback стоит делать
-     * отдельной стратегией только для страниц, где текстовый слой действительно
-     * отсутствует или почти пустой.</p>
+     * <p>Изображения страницы не добавляются в результат как отдельное содержимое:
+     * для текущего парсера источником правды является нативный текстовый слой PDF.
+     * Такой режим не создаёт вторичные распознанные дубли и не смешивает корректный русский текст
+     * с ошибочно распознанными латинскими символами.</p>
      */
-    private static final OcrConfig.Strategy PDF_OCR_STRATEGY = OcrConfig.Strategy.NO_OCR;
+    private static final PDFParserConfig.IMAGE_STRATEGY PDF_IMAGE_STRATEGY = PDFParserConfig.IMAGE_STRATEGY.NONE;
 
     @Override
     public ExtractedTextDocument read(byte[] component) {
@@ -56,11 +53,8 @@ public class TikaPdfReader implements PdfReaderPort {
     ParseContext createParseContext() {
         ParseContext context = new ParseContext();
         PDFParserConfig pdfParserConfig = new PDFParserConfig();
-        OcrConfig ocrConfig = new OcrConfig();
 
-        ocrConfig.setStrategy(PDF_OCR_STRATEGY);
-        pdfParserConfig.setOcr(ocrConfig);
-        pdfParserConfig.setImageStrategy(PDFParserConfig.IMAGE_STRATEGY.NONE);
+        pdfParserConfig.setImageStrategy(PDF_IMAGE_STRATEGY);
 
         context.set(PDFParserConfig.class, pdfParserConfig);
 
