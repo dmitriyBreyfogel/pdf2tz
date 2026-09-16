@@ -71,6 +71,14 @@ public class TableQualityFilter {
             return false;
         }
 
+        if (isIncompleteHeaderValueFragment(metrics)) {
+            return false;
+        }
+
+        if (isSparseGridFragment(metrics)) {
+            return false;
+        }
+
         if (isSingleColumnTextBlock(metrics)) {
             return false;
         }
@@ -109,6 +117,20 @@ public class TableQualityFilter {
                 && metrics.rowCount() >= 3
                 && metrics.multiColumnRowRatio() < 0.25
                 && metrics.keyValueRowCount() < 2;
+    }
+
+    private boolean isIncompleteHeaderValueFragment(TableQualityMetrics metrics) {
+        return metrics.columnCount() == 2
+                && metrics.rowCount() >= 3
+                && metrics.hasHeaderTerms()
+                && metrics.multiColumnRowCount() == 1
+                && metrics.keyValueRowCount() < 2;
+    }
+
+    private boolean isSparseGridFragment(TableQualityMetrics metrics) {
+        return metrics.columnCount() >= 3
+                && metrics.rowCount() >= 3
+                && metrics.filledCellRatio() < 0.60;
     }
 
     private boolean isStrongSingleRowTable(TableQualityMetrics metrics) {

@@ -111,6 +111,34 @@ class TableQualityFilterTest {
     }
 
     @Test
+    void removesHeaderValueFragmentSplitAcrossRows() {
+        TableFragment fragment = fragment(
+                row("Наименование параметра", "Значение"),
+                row("Суммарная мощность электроаппаратуры", ""),
+                row("", "3,5")
+        );
+
+        List<TableFragment> result = filter.filter(List.of(fragment));
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void removesSparseBrokenGrid() {
+        TableFragment fragment = fragment(
+                row("Обозначение", "", "Наименование", "Примечание"),
+                row("ГАКЕ 55.00.00", "", "Система клапанная", "в комплекте"),
+                row("", "", "Составные части", ""),
+                row("ГАКЕ 55.00.00 -02", "", "", ""),
+                row("ГАКЕ 55.00.00 -03", "", "", "")
+        );
+
+        List<TableFragment> result = filter.filter(List.of(fragment));
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
     void keepsParameterValueTable() {
         TableFragment fragment = fragment(
                 row("Параметр", "Значение"),

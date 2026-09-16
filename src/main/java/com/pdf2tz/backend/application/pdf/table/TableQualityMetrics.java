@@ -170,6 +170,15 @@ public record TableQualityMetrics(
     }
 
     /**
+     * Возвращает долю заполненных ячеек относительно всей прямоугольной сетки фрагмента.
+     *
+     * @return значение от {@code 0} до {@code 1}
+     */
+    public double filledCellRatio() {
+        return (double) filledCellCount / (rowCount * columnCount);
+    }
+
+    /**
      * Возвращает долю строк, похожих на пункты оглавления.
      *
      * @return значение от {@code 0} до {@code 1}
