@@ -8,6 +8,7 @@ import org.apache.tika.io.TikaInputStream;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
+import org.apache.tika.parser.pdf.OcrConfig;
 import org.apache.tika.parser.pdf.PDFParserConfig;
 import org.springframework.stereotype.Component;
 
@@ -17,14 +18,17 @@ import java.util.Map;
 public class TikaPdfReader implements PdfReaderPort {
 
     /**
-     * Настраивает Tika на чтение только текстового слоя PDF.
+     * Настраивает Tika на чтение только текстового слоя PDF и запрещает запуск OCR.
      *
      * <p>Изображения страницы не добавляются в результат как отдельное содержимое:
      * для текущего парсера источником правды является нативный текстовый слой PDF.
-     * Такой режим не создаёт вторичные распознанные дубли и не смешивает корректный русский текст
-     * с ошибочно распознанными латинскими символами.</p>
+     * Явный {@link OcrConfig.Strategy#NO_OCR} нужен, потому что один только
+     * {@link PDFParserConfig.IMAGE_STRATEGY#NONE} не запрещает AutoDetectParser
+     * вызвать системный Tesseract, если он установлен на машине.</p>
      */
     private static final PDFParserConfig.IMAGE_STRATEGY PDF_IMAGE_STRATEGY = PDFParserConfig.IMAGE_STRATEGY.NONE;
+
+    private static final OcrConfig.Strategy PDF_OCR_STRATEGY = OcrConfig.Strategy.NO_OCR;
 
     @Override
     public ExtractedTextDocument read(byte[] component) {
@@ -53,7 +57,10 @@ public class TikaPdfReader implements PdfReaderPort {
     ParseContext createParseContext() {
         ParseContext context = new ParseContext();
         PDFParserConfig pdfParserConfig = new PDFParserConfig();
+        OcrConfig ocrConfig = new OcrConfig();
 
+        ocrConfig.setStrategy(PDF_OCR_STRATEGY);
+        pdfParserConfig.setOcr(ocrConfig);
         pdfParserConfig.setImageStrategy(PDF_IMAGE_STRATEGY);
 
         context.set(PDFParserConfig.class, pdfParserConfig);
