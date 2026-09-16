@@ -63,6 +63,10 @@ public class TableQualityFilter {
             return false;
         }
 
+        if (isDegenerateMultiColumnFragment(metrics)) {
+            return false;
+        }
+
         if (isSingleColumnTextBlock(metrics)) {
             return false;
         }
@@ -89,6 +93,11 @@ public class TableQualityFilter {
 
     private boolean isSingleColumnTextBlock(TableQualityMetrics metrics) {
         return metrics.columnCount() == 1;
+    }
+
+    private boolean isDegenerateMultiColumnFragment(TableQualityMetrics metrics) {
+        return metrics.columnCount() >= 2
+                && metrics.multiColumnRowCount() == 0;
     }
 
     private boolean isStrongSingleRowTable(TableQualityMetrics metrics) {

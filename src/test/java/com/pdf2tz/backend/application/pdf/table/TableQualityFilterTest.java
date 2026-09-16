@@ -82,6 +82,19 @@ class TableQualityFilterTest {
     }
 
     @Test
+    void removesMultiColumnFragmentWithoutFilledColumnPairs() {
+        TableFragment fragment = fragment(
+                row("", "13 СПИСОК ПРИНЯТЫХ СОКРАЩЕНИЙ И УСЛОВНЫХ ЗНАКОВ"),
+                row("", "ИВЛ, CMV - искусственная вентиляция легких;"),
+                row("", "ВЧ - режим высокочастотной ИВЛ;")
+        );
+
+        List<TableFragment> result = filter.filter(List.of(fragment));
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
     void keepsParameterValueTable() {
         TableFragment fragment = fragment(
                 row("Параметр", "Значение"),
