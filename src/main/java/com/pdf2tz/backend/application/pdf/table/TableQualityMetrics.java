@@ -29,7 +29,9 @@ import java.util.regex.Pattern;
  * @param abbreviationKeyValueRowCount количество строк, где ключ похож на аббревиатуру
  * @param numericValueRowCount количество строк, где значение содержит число
  * @param longSentenceRowCount количество строк, похожих на обычный текстовый абзац
+ * @param tableOfContentsRowCount количество строк, похожих на пункт оглавления с номером страницы
  * @param hasHeaderTerms есть ли во фрагменте слова, характерные для заголовков таблиц
+ * @param hasTableOfContentsTitle есть ли во фрагменте явный заголовок оглавления
  * @param score суммарная эвристическая оценка качества фрагмента
  */
 public record TableQualityMetrics(
@@ -44,7 +46,9 @@ public record TableQualityMetrics(
         int abbreviationKeyValueRowCount,
         int numericValueRowCount,
         int longSentenceRowCount,
+        int tableOfContentsRowCount,
         boolean hasHeaderTerms,
+        boolean hasTableOfContentsTitle,
         int score
 ) {
 
@@ -70,6 +74,12 @@ public record TableQualityMetrics(
      * многострочной таблицы.
      */
     private static final double MIN_MULTI_COLUMN_ROW_RATIO = 0.45;
+
+    /**
+     * Минимальная доля строк, похожих на оглавление, после которой фрагмент безопаснее
+     * оставить обычным текстом, а не структурированной таблицей.
+     */
+    private static final double MIN_TABLE_OF_CONTENTS_ROW_RATIO = 0.45;
 
     /**
      * Табличные слова, которые часто встречаются в заголовках медицинских инструкций.
@@ -99,6 +109,19 @@ public record TableQualityMetrics(
             "characteristic",
             "description",
             "code"
+    );
+
+    /**
+     * Заголовки оглавлений, которые часто извлекаются Tabula как одноколоночные таблицы.
+     *
+     * <p>Это отрицательный структурный признак: оглавление важно сохранить в тексте,
+     * но оно не является таблицей данных для будущего технического задания.</p>
+     */
+    private static final Set<String> TABLE_OF_CONTENTS_TITLES = Set.of(
+            "table of contents",
+            "contents",
+            "содержание",
+            "оглавление"
     );
 
     private static final Pattern TOKEN_SPLIT_PATTERN = Pattern.compile("[\\s|]+");
@@ -147,6 +170,26 @@ public record TableQualityMetrics(
     }
 
     /**
+     * Возвращает долю строк, похожих на пункты оглавления.
+     *
+     * @return значение от {@code 0} до {@code 1}
+     */
+    public double tableOfContentsRowRatio() {
+        return (double) tableOfContentsRowCount / rowCount;
+    }
+
+    /**
+     * Проверяет, похож ли фрагмент на оглавление, ошибочно принятое за таблицу.
+     *
+     * @return {@code true}, если фрагмент имеет явный заголовок оглавления или
+     * достаточную долю строк с названием раздела и номером страницы
+     */
+    public boolean isTableOfContentsLike() {
+        return hasTableOfContentsTitle
+                || tableOfContentsRowRatio() >= MIN_TABLE_OF_CONTENTS_ROW_RATIO;
+    }
+
+    /**
      * Собирает признаки фрагмента в одном проходе по строкам и ячейкам.
      *
      * <p>Класс остаётся приватной деталью {@link TableQualityMetrics}: наружу отдаётся
@@ -165,7 +208,9 @@ public record TableQualityMetrics(
         private int abbreviationKeyValueRowCount;
         private int numericValueRowCount;
         private int longSentenceRowCount;
+        private int tableOfContentsRowCount;
         private boolean hasHeaderTerms;
+        private boolean hasTableOfContentsTitle;
 
         private MetricAccumulator(TableFragment fragment) {
             this.fragment = fragment;
@@ -186,7 +231,9 @@ public record TableQualityMetrics(
                     abbreviationKeyValueRowCount,
                     numericValueRowCount,
                     longSentenceRowCount,
+                    tableOfContentsRowCount,
                     hasHeaderTerms,
+                    hasTableOfContentsTitle,
                     score()
             );
         }
@@ -213,6 +260,14 @@ public record TableQualityMetrics(
 
             if (containsHeaderTerms(rowText)) {
                 hasHeaderTerms = true;
+            }
+
+            if (isTableOfContentsTitle(rowText)) {
+                hasTableOfContentsTitle = true;
+            }
+
+            if (isTableOfContentsRow(filledCells)) {
+                tableOfContentsRowCount++;
             }
 
             if (isLongSentenceRow(filledCells)) {
@@ -300,6 +355,11 @@ public record TableQualityMetrics(
                 result -= 2;
             }
 
+            if (tableOfContentsRowRatio() >= MIN_TABLE_OF_CONTENTS_ROW_RATIO
+                    || hasTableOfContentsTitle) {
+                result -= 4;
+            }
+
             if (multiColumnRowRatio() < MIN_MULTI_COLUMN_ROW_RATIO
                     && !hasHeaderTerms) {
                 result -= 2;
@@ -322,6 +382,10 @@ public record TableQualityMetrics(
 
         private double longSentenceRowRatio() {
             return (double) longSentenceRowCount / fragment.rowCount();
+        }
+
+        private double tableOfContentsRowRatio() {
+            return (double) tableOfContentsRowCount / fragment.rowCount();
         }
 
         private boolean isLongSentenceRow(List<String> filledCells) {
@@ -362,6 +426,36 @@ public record TableQualityMetrics(
             return text.codePoints().anyMatch(Character::isDigit);
         }
 
+        /**
+         * Распознаёт типичную строку оглавления без привязки к конкретному языку:
+         * несколько слов названия и короткая ссылка на страницу в конце строки.
+         */
+        private boolean isTableOfContentsRow(List<String> filledCells) {
+            if (filledCells.size() != 1) {
+                return false;
+            }
+
+            String text = filledCells.get(0).trim();
+            List<String> words = words(text);
+
+            return words.size() >= 2
+                    && endsWithPageReference(text);
+        }
+
+        private boolean endsWithPageReference(String text) {
+            String[] tokens = TOKEN_SPLIT_PATTERN.split(text.trim());
+
+            if (tokens.length == 0) {
+                return false;
+            }
+
+            String lastToken = normalizeToken(tokens[tokens.length - 1])
+                    .toLowerCase(Locale.ROOT);
+
+            return lastToken.matches("\\d{1,4}")
+                    || lastToken.matches("[ivxlcdm]{1,8}");
+        }
+
         private boolean isAbbreviationLike(String text) {
             String compactLetters = text.codePoints()
                     .filter(Character::isLetter)
@@ -387,6 +481,12 @@ public record TableQualityMetrics(
             String normalizedText = text.toLowerCase(Locale.ROOT);
 
             return TABLE_HEADER_TERMS.stream().anyMatch(normalizedText::contains);
+        }
+
+        private boolean isTableOfContentsTitle(String text) {
+            String normalizedText = text.toLowerCase(Locale.ROOT);
+
+            return TABLE_OF_CONTENTS_TITLES.stream().anyMatch(normalizedText::contains);
         }
 
         private List<String> words(String text) {

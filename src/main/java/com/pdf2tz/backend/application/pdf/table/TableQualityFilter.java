@@ -59,6 +59,10 @@ public class TableQualityFilter {
             return false;
         }
 
+        if (metrics.isTableOfContentsLike()) {
+            return false;
+        }
+
         if (isSingleColumnTextBlock(metrics)) {
             return false;
         }
@@ -84,8 +88,7 @@ public class TableQualityFilter {
     }
 
     private boolean isSingleColumnTextBlock(TableQualityMetrics metrics) {
-        return metrics.columnCount() == 1
-                && !metrics.hasHeaderTerms();
+        return metrics.columnCount() == 1;
     }
 
     private boolean isStrongSingleRowTable(TableQualityMetrics metrics) {

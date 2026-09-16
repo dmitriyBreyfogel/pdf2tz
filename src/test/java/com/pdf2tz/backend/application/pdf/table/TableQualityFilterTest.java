@@ -54,6 +54,34 @@ class TableQualityFilterTest {
     }
 
     @Test
+    void removesTableOfContentsExtractedAsTable() {
+        TableFragment fragment = fragment(
+                row("Table of Contents"),
+                row("Preface ii"),
+                row("Limited Warranty iii"),
+                row("Section One 1"),
+                row("Troubleshooting 42")
+        );
+
+        List<TableFragment> result = filter.filter(List.of(fragment));
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void removesSingleColumnTableWithCollapsedHeaders() {
+        TableFragment fragment = fragment(
+                row("No п/п Наименование изделия Децимальный номер Количество"),
+                row("1 Секция консольная 12345 2"),
+                row("2 Стойка монтажная 67890 1")
+        );
+
+        List<TableFragment> result = filter.filter(List.of(fragment));
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
     void keepsParameterValueTable() {
         TableFragment fragment = fragment(
                 row("Параметр", "Значение"),
