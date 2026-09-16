@@ -67,6 +67,10 @@ public class TableQualityFilter {
             return false;
         }
 
+        if (isSparseMultiColumnFragment(metrics)) {
+            return false;
+        }
+
         if (isSingleColumnTextBlock(metrics)) {
             return false;
         }
@@ -98,6 +102,13 @@ public class TableQualityFilter {
     private boolean isDegenerateMultiColumnFragment(TableQualityMetrics metrics) {
         return metrics.columnCount() >= 2
                 && metrics.multiColumnRowCount() == 0;
+    }
+
+    private boolean isSparseMultiColumnFragment(TableQualityMetrics metrics) {
+        return metrics.columnCount() >= 2
+                && metrics.rowCount() >= 3
+                && metrics.multiColumnRowRatio() < 0.25
+                && metrics.keyValueRowCount() < 2;
     }
 
     private boolean isStrongSingleRowTable(TableQualityMetrics metrics) {

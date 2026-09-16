@@ -95,6 +95,22 @@ class TableQualityFilterTest {
     }
 
     @Test
+    void removesSparseMultiColumnListExtractedAsTable() {
+        TableFragment fragment = fragment(
+                row("", "13 СПИСОК ПРИНЯТЫХ СОКРАЩЕНИЙ И УСЛОВНЫХ ЗНАКОВ"),
+                row("", "ИВЛ, CMV - искусственная вентиляция легких;"),
+                row("", "ВЧ - режим высокочастотной ИВЛ;"),
+                row("(или,", "соответственно - отношение времени вдоха ко времени выдоха). Таблица"),
+                row("соответствия на боковой панели аппарата;", ""),
+                row("", "HFPPV - высокочастотная ИВЛ с положительным давлением;")
+        );
+
+        List<TableFragment> result = filter.filter(List.of(fragment));
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
     void keepsParameterValueTable() {
         TableFragment fragment = fragment(
                 row("Параметр", "Значение"),
