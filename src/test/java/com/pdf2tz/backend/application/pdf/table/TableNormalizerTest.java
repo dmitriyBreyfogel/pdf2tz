@@ -73,7 +73,9 @@ class TableNormalizerTest {
                 row("", "Температура воздуха, °С", "+10-+35", "")
         );
 
-        List<TableFragment> fragments = normalizer.normalize(List.of(candidate), emptyNoiseProfile());
+        List<TableFragment> fragments = normalizer.normalize(
+                List.of(candidate), new DocumentNoiseProfile(Set.of(), Set.of("v.ru"))
+        );
         TableFragment fragment = fragments.get(0);
 
         assertEquals(2, fragment.columnCount());
