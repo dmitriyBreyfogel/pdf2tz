@@ -2,15 +2,11 @@ package com.pdf2tz.backend.api.pdf.mapper;
 
 import com.pdf2tz.backend.api.pdf.dto.PdfPageResponseDto;
 import com.pdf2tz.backend.api.pdf.dto.PdfResponseDto;
-import com.pdf2tz.backend.application.pdf.model.document.DocumentBlock;
-import com.pdf2tz.backend.application.pdf.model.document.ParsedDocument;
-import com.pdf2tz.backend.application.pdf.model.document.ParsedPage;
-import com.pdf2tz.backend.application.pdf.model.document.TextBlock;
+import com.pdf2tz.backend.application.pdf.model.cleaning.CleanedTextDocument;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 /**
  * Преобразует внутреннюю модель PDF-документа в DTO HTTP-ответа.
@@ -19,41 +15,25 @@ import java.util.stream.Collectors;
 public class PdfResponseMapper {
 
     /**
-     * Собирает DTO ответа из готовой блочной модели PDF-документа.
+     * Собирает DTO ответа из полного очищенного текстового слоя PDF-документа.
      *
-     * <p>Текущий публичный API остаётся text-only, поэтому mapper берёт из
-     * страницы только текстовые блоки и объединяет их в одно поле {@code text}.
-     * Когда API начнёт отдавать таблицы отдельной структурой, этот mapper нужно
-     * будет расширить новым DTO-контрактом.</p>
+     * <p>Текст включает строковое представление таблиц: удаление табличных дублей
+     * выполняется только при сборке блочного документа. Пустые страницы сохраняются.</p>
      *
-     * @param document внутренняя модель готового документа
+     * @param document очищенный текст документа до сборки блоков
      * @return DTO ответа API
      */
-    public PdfResponseDto toResponse(ParsedDocument document) {
+    public PdfResponseDto toResponse(CleanedTextDocument document) {
         Objects.requireNonNull(document, "Parsed document must not be null");
 
         List<PdfPageResponseDto> pages = document.pages().stream()
                 .map(page -> new PdfPageResponseDto(
                         page.pageNumber(),
-                        pageText(page)
+                        page.text()
                 ))
                 .toList();
 
         return new PdfResponseDto(pages);
     }
 
-    private String pageText(ParsedPage page) {
-        return page.blocks().stream()
-                .map(this::blockText)
-                .filter(text -> !text.isBlank())
-                .collect(Collectors.joining("\n\n"));
-    }
-
-    private String blockText(DocumentBlock block) {
-        if (block instanceof TextBlock textBlock) {
-            return textBlock.text();
-        }
-
-        return "";
-    }
 }
