@@ -20,6 +20,25 @@ class TableAssemblerTest {
     private final TableAssembler assembler = new TableAssembler();
 
     @Test
+    void matchingHeaderDoesNotOverridePageDistanceWidthOrPosition() {
+        TableRow header = row("Параметр", "Значение");
+        var first = fragment(area(1, 500, 40, 780, 540), header, row("Масса", "2 кг"));
+        for (TableArea nextArea : List.of(
+                area(1, 790, 40, 810, 540),
+                area(3, 40, 40, 220, 540),
+                area(2, 260, 40, 420, 540),
+                area(2, 40, 120, 220, 620),
+                area(2, 40, 40, 220, 440)
+        )) {
+            var next = fragment(nextArea, header, row("Объём", "250 мл"));
+            assertEquals(2, assembler.assemble(List.of(first, next)).size(), nextArea.toString());
+        }
+        var upper = fragment(area(1, 100, 40, 300, 540), header, row("Масса", "2 кг"));
+        var next = fragment(area(2, 40, 40, 220, 540), header, row("Объём", "250 мл"));
+        assertEquals(2, assembler.assemble(List.of(upper, next)).size());
+    }
+
+    @Test
     void returnsTablesInReadingOrder() {
         TableFragment secondPageFragment = fragment(area(2, 20, 30, 100, 240), row("E", "F"));
         TableFragment lowerFragment = fragment(area(1, 200, 30, 260, 240), row("C", "D"));
