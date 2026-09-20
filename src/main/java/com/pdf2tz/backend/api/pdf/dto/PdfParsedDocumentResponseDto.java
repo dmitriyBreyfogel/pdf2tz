@@ -5,7 +5,7 @@ import java.util.List;
 /**
  * DTO готового распарсенного PDF-документа.
  *
- * @param pages страницы документа с блоками в порядке чтения
+ * @param pages страницы в исходном порядке с текстовыми и табличными блоками
  */
 public record PdfParsedDocumentResponseDto(
         List<PdfParsedPageResponseDto> pages
