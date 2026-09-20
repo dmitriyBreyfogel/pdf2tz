@@ -58,13 +58,13 @@ class PdfTableParsingServiceTest {
         assertTrue(table.isMultiPage());
         assertEquals(1, table.startPageNumber());
         assertEquals(2, table.endPageNumber());
-        assertEquals(4, table.rows().size());
+        assertEquals(3, table.rows().size());
         assertEquals("Параметр", cellText(table, 0, 0));
         assertEquals("Значение", cellText(table, 0, 1));
         assertEquals("Скорость", cellText(table, 1, 0));
         assertEquals("10 мл/ч", cellText(table, 1, 1));
-        assertEquals("Объём", cellText(table, 3, 0));
-        assertEquals("250 мл", cellText(table, 3, 1));
+        assertEquals("Объём", cellText(table, 2, 0));
+        assertEquals("250 мл", cellText(table, 2, 1));
     }
 
     @Test

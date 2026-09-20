@@ -60,7 +60,7 @@ class TableAssemblerTest {
         assertEquals(List.of(firstFragment, continuationFragment), tables.get(0).fragments());
         assertEquals(3, tables.get(0).startPageNumber());
         assertEquals(4, tables.get(0).endPageNumber());
-        assertEquals(4, tables.get(0).rows().size());
+        assertEquals(3, tables.get(0).rows().size());
     }
 
     @Test
@@ -78,7 +78,7 @@ class TableAssemblerTest {
 
         assertEquals(1, tables.size());
         assertEquals(List.of(firstFragment, secondFragment, thirdFragment), tables.get(0).fragments());
-        assertEquals(6, tables.get(0).rows().size());
+        assertEquals(4, tables.get(0).rows().size());
     }
 
     @Test

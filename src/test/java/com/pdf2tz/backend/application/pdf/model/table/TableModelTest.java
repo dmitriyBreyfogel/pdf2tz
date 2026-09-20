@@ -14,6 +14,28 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TableModelTest {
 
     @Test
+    void removesOnlyRepeatedHeaderAndPreservesPhysicalRowsAndRepeatedData() {
+        TableRow header = row("Параметр", "Значение");
+        TableRow data = row("Масса", "2 кг");
+        var first = new TableFragment(area(1, 100), List.of(header, data));
+        var second = new TableFragment(area(2, 30), List.of(header, data, data));
+        var table = new ParsedTable(List.of(first, second));
+
+        assertEquals(List.of(header, data, data, data), table.rows());
+        assertEquals(List.of(header, data, data), table.fragments().get(1).rows());
+    }
+
+    @Test
+    void doesNotDeduplicateRepeatedNumericFirstRows() {
+        TableRow data = row("10", "20");
+        var table = new ParsedTable(List.of(
+                new TableFragment(area(1, 100), List.of(data)),
+                new TableFragment(area(2, 30), List.of(data))
+        ));
+        assertEquals(List.of(data, data), table.rows());
+    }
+
+    @Test
     void tableAreaProvidesGeometryForCandidateComparison() {
         TableArea area = new TableArea(2, 10, 20, 70, 120);
         TableArea overlappingArea = new TableArea(2, 40, 70, 90, 150);

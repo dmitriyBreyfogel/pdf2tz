@@ -2,6 +2,7 @@ package com.pdf2tz.backend.application.pdf.model.table;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.IntStream;
 
 /**
  * Целостная таблица документа.
@@ -27,13 +28,26 @@ public record ParsedTable(
     }
 
     /**
-     * Возвращает строки всех фрагментов таблицы в порядке чтения.
+     * Возвращает строки таблицы без повторной первой строки-шапки на границах фрагментов.
+     *
+     * <p>Пропускается только точное повторение текстовой шапки в начале продолжения.
+     * Повторные строки данных внутри таблицы сохраняются. Исходные строки фрагментов
+     * не меняются: они нужны для поиска дублей на каждой физической странице.</p>
      *
      * @return строки целостной таблицы
      */
     public List<TableRow> rows() {
-        return fragments.stream()
-                .flatMap(fragment -> fragment.rows().stream())
+        TableRow header = fragments.get(0).rows().get(0);
+        boolean hasTextLabels = header.cells().stream()
+                .filter(cell -> cell.text().codePoints().filter(Character::isLetter).count() >= 3)
+                .count() >= 2;
+        return IntStream.range(0, fragments.size())
+                .mapToObj(index -> {
+                    List<TableRow> rows = fragments.get(index).rows();
+                    return index > 0 && hasTextLabels && header.equals(rows.get(0))
+                            ? rows.subList(1, rows.size()) : rows;
+                })
+                .flatMap(List::stream)
                 .toList();
     }
 
