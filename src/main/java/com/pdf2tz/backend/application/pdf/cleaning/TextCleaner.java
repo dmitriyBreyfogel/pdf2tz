@@ -57,21 +57,13 @@ public class TextCleaner {
             | Pattern.UNICODE_CHARACTER_CLASS;
 
     /**
-     * Самостоятельный доменный хвост, который часто попадает в ячейки таблиц как обрывок watermark.
+     * Домен из профиля шума, из которого можно получить оторванный ASCII-суффикс.
      *
-     * <p>Правило применяется к атомарному фрагменту целиком или к отдельному токену внутри строки. Полезный
-     * домен без пробела перед точкой, например {@code example.ru}, этим правилом не режется.</p>
+     * <p>Суффикс удаляется только при наличии соответствующего домена в профиле документа.
+     * Сама по себе точка перед словом не является признаком watermark.</p>
      */
-    private static final Pattern STANDALONE_DOMAIN_SUFFIX_PATTERN = Pattern.compile(
-            "\\.[\\p{L}]{2,}",
-            TEXT_PATTERN_FLAGS
-    );
-
-    /**
-     * Доменный хвост как отдельный токен внутри полезной строки.
-     */
-    private static final Pattern STANDALONE_DOMAIN_SUFFIX_TOKEN_PATTERN = Pattern.compile(
-            "(?<!\\S)\\.[\\p{L}]{2,}(?!\\S)",
+    private static final Pattern NOISE_DOMAIN_PATTERN = Pattern.compile(
+            "[a-z0-9-]+(?:\\.[a-z0-9-]+)*\\.([a-z]{2,})",
             TEXT_PATTERN_FLAGS
     );
 
@@ -344,10 +336,6 @@ public class TextCleaner {
             return "";
         }
 
-        if (isStandaloneDomainSuffix(normalizedText)) {
-            return "";
-        }
-
         return cleanInlineText(normalizedText, inlineNoise);
     }
 
@@ -367,8 +355,6 @@ public class TextCleaner {
         for (String noise : inlineNoise) {
             result = removeInlineNoise(result, noise);
         }
-
-        result = removeStandaloneDomainSuffixTokens(result);
 
         return normalizeLine(result);
     }
@@ -397,6 +383,10 @@ public class TextCleaner {
         String expression = Arrays.stream(noise.split("\\s+"))
                 .map(Pattern::quote)
                 .collect(Collectors.joining("\\s+"));
+
+        if (noise.matches("\\.[a-z]{2,}")) {
+            expression = "(?<!\\S)" + expression + "(?!\\S)";
+        }
 
         return Pattern.compile(expression, TEXT_PATTERN_FLAGS);
     }
@@ -713,7 +703,14 @@ public class TextCleaner {
     }
 
     private List<String> normalizeInlineNoise(Set<String> noise) {
-        return normalizeNoiseSet(noise).stream()
+        Set<String> fragments = new HashSet<>(normalizeNoiseSet(noise));
+        for (String fragment : noise) {
+            var matcher = NOISE_DOMAIN_PATTERN.matcher(normalizeForCompare(fragment));
+            if (matcher.matches()) {
+                fragments.add("." + matcher.group(1));
+            }
+        }
+        return fragments.stream()
                 .sorted(Comparator.comparingInt(String::length).reversed())
                 .toList();
     }
@@ -723,14 +720,6 @@ public class TextCleaner {
             Set<String> lineNoise
     ) {
         return lineNoise.contains(normalizeForCompare(line));
-    }
-
-    private boolean isStandaloneDomainSuffix(String text) {
-        return STANDALONE_DOMAIN_SUFFIX_PATTERN.matcher(text).matches();
-    }
-
-    private String removeStandaloneDomainSuffixTokens(String text) {
-        return STANDALONE_DOMAIN_SUFFIX_TOKEN_PATTERN.matcher(text).replaceAll(" ");
     }
 
     private String normalizeLine(String text) {

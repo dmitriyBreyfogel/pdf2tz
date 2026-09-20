@@ -20,6 +20,25 @@ class TableAssemblerTest {
     private final TableAssembler assembler = new TableAssembler();
 
     @Test
+    void matchingHeaderDoesNotOverridePageDistanceWidthOrPosition() {
+        TableRow header = row("Параметр", "Значение");
+        var first = fragment(area(1, 500, 40, 780, 540), header, row("Масса", "2 кг"));
+        for (TableArea nextArea : List.of(
+                area(1, 790, 40, 810, 540),
+                area(3, 40, 40, 220, 540),
+                area(2, 260, 40, 420, 540),
+                area(2, 40, 120, 220, 620),
+                area(2, 40, 40, 220, 440)
+        )) {
+            var next = fragment(nextArea, header, row("Объём", "250 мл"));
+            assertEquals(2, assembler.assemble(List.of(first, next)).size(), nextArea.toString());
+        }
+        var upper = fragment(area(1, 100, 40, 300, 540), header, row("Масса", "2 кг"));
+        var next = fragment(area(2, 40, 40, 220, 540), header, row("Объём", "250 мл"));
+        assertEquals(2, assembler.assemble(List.of(upper, next)).size());
+    }
+
+    @Test
     void returnsTablesInReadingOrder() {
         TableFragment secondPageFragment = fragment(area(2, 20, 30, 100, 240), row("E", "F"));
         TableFragment lowerFragment = fragment(area(1, 200, 30, 260, 240), row("C", "D"));
@@ -46,6 +65,7 @@ class TableAssemblerTest {
         );
         TableFragment continuationFragment = fragment(
                 area(4, 40, 43, 240, 537),
+                row("Параметр", "Значение"),
                 row("Объём", "250 мл")
         );
 
@@ -64,9 +84,10 @@ class TableAssemblerTest {
 
     @Test
     void mergesContinuationChainAcrossSeveralPages() {
-        TableFragment firstFragment = fragment(area(1, 500, 40, 780, 540), row("A", "B"));
-        TableFragment secondFragment = fragment(area(2, 40, 40, 780, 540), row("C", "D"));
-        TableFragment thirdFragment = fragment(area(3, 40, 40, 220, 540), row("E", "F"));
+        TableRow header = row("Параметр", "Значение");
+        TableFragment firstFragment = fragment(area(1, 500, 40, 780, 540), header, row("A", "B"));
+        TableFragment secondFragment = fragment(area(2, 40, 40, 780, 540), header, row("C", "D"));
+        TableFragment thirdFragment = fragment(area(3, 40, 40, 220, 540), header, row("E", "F"));
 
         List<ParsedTable> tables = assembler.assemble(List.of(
                 thirdFragment,
@@ -76,7 +97,42 @@ class TableAssemblerTest {
 
         assertEquals(1, tables.size());
         assertEquals(List.of(firstFragment, secondFragment, thirdFragment), tables.get(0).fragments());
-        assertEquals(3, tables.get(0).rows().size());
+        assertEquals(4, tables.get(0).rows().size());
+    }
+
+    @Test
+    void separatesDifferentHeadersDespiteIdenticalGeometry() {
+        var previous = fragment(area(144, 129, 84, 691, 510),
+                row("Substance", "Effects", "Recommended Action"), row("Material", "Effect", "Action"));
+        var current = fragment(area(145, 179, 84, 727, 513),
+                row("Code", "Error message on the screen", "Description"), row("1", "System error", "Timing"));
+
+        assertEquals(2, assembler.assemble(List.of(previous, current)).size());
+    }
+
+    @Test
+    void mergesMatchingHeadersAcrossMirroredMargins() {
+        TableRow header = row("Компонент", "Интервал", "Измерение", "Ответственный персонал");
+        var previous = fragment(area(202, 259, 22, 596, 436), header,
+                row("Датчик", "12 месяцев", "Осмотр", "Специалисты"));
+        var current = fragment(area(203, 65, 67, 154, 481), header,
+                row("Редуктор", "6 лет", "Замена", "Специалисты"));
+
+        assertEquals(1, assembler.assemble(List.of(previous, current)).size());
+    }
+
+    @Test
+    void keepsHeaderlessContinuationSeparateRatherThanGuessing() {
+        var previous = fragment(area(1, 500, 40, 780, 540), row("Параметр", "Значение"));
+        var current = fragment(area(2, 40, 40, 220, 540), row("Масса", "2 кг"));
+        assertEquals(2, assembler.assemble(List.of(previous, current)).size());
+    }
+
+    @Test
+    void doesNotUseRepeatedNumericDataAsHeader() {
+        var previous = fragment(area(1, 500, 40, 780, 540), row("100", "200"));
+        var current = fragment(area(2, 40, 40, 220, 540), row("100", "200"));
+        assertEquals(2, assembler.assemble(List.of(previous, current)).size());
     }
 
     @Test

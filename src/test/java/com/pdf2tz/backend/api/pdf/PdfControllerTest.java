@@ -9,6 +9,7 @@ import com.pdf2tz.backend.api.pdf.mapper.PdfTableResponseMapper;
 import com.pdf2tz.backend.application.pdf.PdfParsingPipeline;
 import com.pdf2tz.backend.application.pdf.PdfTableParsingPipeline;
 import com.pdf2tz.backend.application.pdf.model.document.ParsedDocument;
+import com.pdf2tz.backend.application.pdf.model.cleaning.CleanedTextDocument;
 import com.pdf2tz.backend.application.pdf.model.table.ParsedTable;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
@@ -45,16 +46,17 @@ class PdfControllerTest {
     void extractTextUsesTextParsingPipeline() {
         MultipartFile file = mock(MultipartFile.class);
         byte[] content = new byte[]{1, 2, 3};
-        ParsedDocument document = mock(ParsedDocument.class);
+        CleanedTextDocument document = mock(CleanedTextDocument.class);
         PdfResponseDto response = mock(PdfResponseDto.class);
 
         when(pdfUploadReader.read(file)).thenReturn(content);
-        when(pdfParsingPipeline.parse(content)).thenReturn(document);
+        when(pdfParsingPipeline.extractText(content)).thenReturn(document);
         when(pdfResponseMapper.toResponse(document)).thenReturn(response);
 
         ResponseEntity<PdfResponseDto> result = controller.extractText(file);
 
         assertSame(response, result.getBody());
+        verify(pdfParsingPipeline, never()).parse(content);
         verify(pdfTableParsingPipeline, never()).parseTables(content);
     }
 
@@ -91,6 +93,6 @@ class PdfControllerTest {
 
         assertSame(response, result.getBody());
         verify(pdfTableParsingPipeline, never()).parseTables(content);
-        verify(pdfResponseMapper, never()).toResponse(document);
+        verify(pdfParsingPipeline, never()).extractText(content);
     }
 }

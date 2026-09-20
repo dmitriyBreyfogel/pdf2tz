@@ -42,7 +42,7 @@ class TextCleanerTest {
     void cleanTextFragmentRemovesStandaloneDomainSuffix() {
         String cleanedText = textCleaner.cleanTextFragment(
                 ".ru",
-                new DocumentNoiseProfile(Set.of(), Set.of())
+                new DocumentNoiseProfile(Set.of(), Set.of("v.ru"))
         );
 
         assertEquals("", cleanedText);
@@ -62,10 +62,25 @@ class TextCleanerTest {
     void cleanTextFragmentRemovesStandaloneDomainSuffixTokenInsideText() {
         String cleanedText = textCleaner.cleanTextFragment(
                 "6 - индикаторы наличия питания; .ru",
-                new DocumentNoiseProfile(Set.of(), Set.of())
+                new DocumentNoiseProfile(Set.of(), Set.of("v.ru"))
         );
 
         assertEquals("6 - индикаторы наличия питания;", cleanedText);
+    }
+
+    @Test
+    void preservesDottedWordsAndUnconfirmedDomainsEvenWithWatermark() {
+        DocumentNoiseProfile profile = new DocumentNoiseProfile(Set.of(), Set.of("v.ru"));
+        for (String text : new String[]{
+                "Перед извлечением .магистрали из насоса",
+                "визуально проверьте .медицинское изделие",
+                ".Verovikova c. 60A", "Сайт производителя example.ru", ".com", ".медицинское"
+        }) {
+            assertEquals(text, textCleaner.cleanTextFragment(text, profile));
+        }
+        assertEquals(".ru", textCleaner.cleanTextFragment(
+                ".ru", new DocumentNoiseProfile(Set.of(), Set.of())
+        ));
     }
     @Test
     void cleanTableCellTextRemovesDerivedAsciiWatermarkFragments() {

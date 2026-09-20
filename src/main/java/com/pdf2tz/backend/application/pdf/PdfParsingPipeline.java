@@ -71,4 +71,20 @@ public class PdfParsingPipeline {
 
         return parsedDocumentAssembler.assemble(cleanedTextDocument, tables);
     }
+
+    /**
+     * Извлекает полный очищенный текст по страницам, включая текстовое представление таблиц.
+     *
+     * <p>Структурное извлечение таблиц и удаление их дублей здесь не выполняются:
+     * текстовый ответ должен оставаться самодостаточным даже при ошибке табличного парсера.</p>
+     *
+     * @param content байтовое представление PDF-файла
+     * @return очищенный текст документа до сборки блоков
+     */
+    public CleanedTextDocument extractText(byte[] content) {
+        Objects.requireNonNull(content, "PDF content must not be null");
+        ExtractedTextDocument document = pdfReaderPort.read(content);
+        DocumentNoiseProfile noiseProfile = documentNoiseProfileBuilder.build(document);
+        return textCleaner.cleanDocument(document, noiseProfile);
+    }
 }

@@ -12,6 +12,8 @@ public enum ErrorCode {
     FILE_READ_ERROR(HttpStatus.BAD_REQUEST),
     PDF_PARSE_ERROR(HttpStatus.BAD_REQUEST),
     FILE_EMPTY(HttpStatus.BAD_REQUEST),
+    INVALID_UPLOAD_REQUEST(HttpStatus.BAD_REQUEST),
+    FILE_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE),
     UNSUPPORTED_FILE_TYPE(HttpStatus.BAD_REQUEST);
 
     private final HttpStatus httpStatus;

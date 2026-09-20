@@ -127,6 +127,14 @@ public record TableQualityMetrics(
     private static final Pattern TOKEN_SPLIT_PATTERN = Pattern.compile("[\\s|]+");
 
     /**
+     * Точечный заполнитель оглавления со ссылкой на страницу, в том числе вида 6-18.
+     * Проверяется в каждой ячейке: Tabula может разбить один пункт на несколько колонок.
+     */
+    private static final Pattern CONTENTS_LEADER_PATTERN = Pattern.compile(
+            "\\.{3,}\\s*\\d{1,4}(?:[-–]\\d{1,4})?"
+    );
+
+    /**
      * Собирает метрики качества по нормализованному фрагменту таблицы.
      *
      * @param fragment нормализованный табличный фрагмент
@@ -440,6 +448,9 @@ public record TableQualityMetrics(
          * несколько слов названия и короткая ссылка на страницу в конце строки.
          */
         private boolean isTableOfContentsRow(List<String> filledCells) {
+            if (filledCells.stream().anyMatch(text -> CONTENTS_LEADER_PATTERN.matcher(text).find())) {
+                return true;
+            }
             if (filledCells.size() != 1) {
                 return false;
             }

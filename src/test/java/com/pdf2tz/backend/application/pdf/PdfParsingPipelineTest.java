@@ -32,6 +32,21 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 class PdfParsingPipelineTest {
 
     @Test
+    void textExtractionPreservesTableRowsWithoutInvokingTableExtractor() {
+        String text = "Параметр Значение\nСкорость 10 мл/ч";
+        PdfTableExtractorPort failingExtractor = content -> {
+            throw new AssertionError("Text extraction must not invoke table extraction");
+        };
+        PdfParsingPipeline pipeline = new PdfParsingPipeline(
+                new StubPdfReaderPort(new ExtractedTextDocument(List.of(new ExtractedTextPage(1, text)))),
+                new DocumentNoiseProfileBuilder(), new TextCleaner(),
+                tableParsingService(failingExtractor), new ParsedDocumentAssembler(new TextTableOverlapCleaner())
+        );
+
+        assertEquals(text, pipeline.extractText(new byte[]{1}).pages().get(0).text());
+    }
+
+    @Test
     void parsesPdfContentToParsedDocument() {
         byte[] content = new byte[]{1, 2, 3};
         RecordingPdfTableExtractorPort tableExtractorPort = new RecordingPdfTableExtractorPort(List.of(

@@ -6,13 +6,14 @@ import com.pdf2tz.backend.error.AppException;
 import com.pdf2tz.backend.error.ErrorCode;
 import org.apache.tika.io.TikaInputStream;
 import org.apache.tika.metadata.Metadata;
-import org.apache.tika.parser.AutoDetectParser;
+import org.apache.tika.parser.pdf.PDFParser;
 import org.apache.tika.parser.ParseContext;
 import org.apache.tika.parser.pdf.OcrConfig;
 import org.apache.tika.parser.pdf.PDFParserConfig;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
+import java.util.Objects;
 
 @Component
 public class TikaPdfReader implements PdfReaderPort {
@@ -37,7 +38,9 @@ public class TikaPdfReader implements PdfReaderPort {
             Metadata metadata = new Metadata();
             ParseContext context = createParseContext();
 
-            AutoDetectParser parser = new AutoDetectParser();
+            // Контракт принимает только PDF: автодетект мог успешно прочитать обычный текст
+            // и вернуть документ без страниц вместо ошибки формата.
+            PDFParser parser = new PDFParser();
 
             try (TikaInputStream input = TikaInputStream.get(component)) {
                 parser.parse(input, handler, metadata, context);
@@ -49,7 +52,7 @@ public class TikaPdfReader implements PdfReaderPort {
             throw AppException.build(
                     ErrorCode.PDF_PARSE_ERROR,
                     "Не удалось распарсить PDF файл",
-                    Map.of("detail", e.getMessage())
+                    Map.of("detail", Objects.toString(e.getMessage(), e.getClass().getSimpleName()))
             );
         }
     }

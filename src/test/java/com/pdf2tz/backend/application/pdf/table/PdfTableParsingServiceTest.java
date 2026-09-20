@@ -34,6 +34,7 @@ class PdfTableParsingServiceTest {
                 ),
                 candidate(
                         area(2, 40, 42, 220, 538),
+                        row("Параметр", "Значение"),
                         row("Объём", "250 мл")
                 ),
                 candidate(
