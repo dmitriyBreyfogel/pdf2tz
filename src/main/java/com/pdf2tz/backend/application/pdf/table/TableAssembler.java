@@ -2,6 +2,7 @@ package com.pdf2tz.backend.application.pdf.table;
 
 import com.pdf2tz.backend.application.pdf.model.table.ParsedTable;
 import com.pdf2tz.backend.application.pdf.model.table.TableFragment;
+import com.pdf2tz.backend.application.pdf.model.table.TableRow;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -41,6 +42,12 @@ public class TableAssembler {
      * работать с узкими и широкими таблицами.</p>
      */
     private static final double HORIZONTAL_BOUNDARY_TOLERANCE_RATIO = 0.05;
+
+    /**
+     * Максимальный сдвиг одинаковых по ширине таблиц относительно их ширины.
+     * Допускает зеркальные поля разворота только при совпадении текстовой шапки.
+     */
+    private static final double MAX_HEADER_MATCHED_SHIFT_RATIO = 0.15;
 
     /**
      * Минимальная нижняя граница предыдущего фрагмента для проверки продолжения.
@@ -110,11 +117,10 @@ public class TableAssembler {
     /**
      * Проверяет, является ли текущий фрагмент продолжением предыдущего.
      *
-     * <p>Эвристика намеренно строгая: фрагменты должны находиться на соседних
-     * страницах, иметь одинаковое количество колонок, близкие горизонтальные
-     * границы и выглядеть как разрыв на границе страниц. Такой подход может не
-     * склеить часть реальных продолжений, зато снижает риск ошибочно объединить
-     * разные таблицы.</p>
+     * <p>Помимо геометрии требуется одинаковая первая строка минимум с двумя
+     * текстовыми названиями колонок. Продолжения без повторной шапки остаются
+     * отдельными таблицами: по одним границам нельзя отличить их от нового раздела.
+     * При одинаковых шапках допускается небольшой сдвиг зеркальных полей разворота.</p>
      */
     private boolean isContinuation(
             TableFragment previous,
@@ -122,6 +128,7 @@ public class TableAssembler {
     ) {
         return current.pageNumber() - previous.pageNumber() == CONTINUATION_PAGE_DISTANCE
                 && current.columnCount() == previous.columnCount()
+                && hasMatchingHeader(previous, current)
                 && hasAlignedHorizontalBounds(previous, current)
                 && isNearPageBreak(previous, current);
     }
@@ -132,8 +139,19 @@ public class TableAssembler {
     ) {
         double tolerance = horizontalTolerance(previous, current);
 
-        return Math.abs(previous.area().left() - current.area().left()) <= tolerance
-                && Math.abs(previous.area().right() - current.area().right()) <= tolerance;
+        double maxShift = Math.max(tolerance,
+                Math.max(previous.area().width(), current.area().width()) * MAX_HEADER_MATCHED_SHIFT_RATIO);
+        return Math.abs(previous.area().width() - current.area().width()) <= tolerance
+                && Math.abs(previous.area().left() - current.area().left()) <= maxShift
+                && Math.abs(previous.area().right() - current.area().right()) <= maxShift;
+    }
+
+    private boolean hasMatchingHeader(TableFragment previous, TableFragment current) {
+        TableRow header = previous.rows().get(0);
+        return header.equals(current.rows().get(0))
+                && header.cells().stream()
+                .filter(cell -> cell.text().codePoints().filter(Character::isLetter).count() >= 3)
+                .count() >= 2;
     }
 
     private double horizontalTolerance(
