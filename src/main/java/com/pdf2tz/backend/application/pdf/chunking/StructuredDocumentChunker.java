@@ -1,6 +1,8 @@
 package com.pdf2tz.backend.application.pdf.chunking;
 
 import com.pdf2tz.backend.application.pdf.chunking.serialization.DocumentChunkSerializer;
+import com.pdf2tz.backend.application.pdf.chunking.serialization.TableTextSerializer;
+import com.pdf2tz.backend.application.pdf.chunking.table.TableChunkSplitter;
 import com.pdf2tz.backend.application.pdf.chunking.text.TextSegmentSplitter;
 import com.pdf2tz.backend.application.pdf.model.chunk.ChunkedDocument;
 import com.pdf2tz.backend.application.pdf.model.chunk.DocumentChunk;
@@ -8,6 +10,7 @@ import com.pdf2tz.backend.application.pdf.model.structure.SectionPath;
 import com.pdf2tz.backend.application.pdf.model.structure.StructuredDocument;
 import com.pdf2tz.backend.application.pdf.model.structure.StructuredDocumentBlock;
 import com.pdf2tz.backend.application.pdf.model.structure.StructuredHeadingBlock;
+import com.pdf2tz.backend.application.pdf.model.structure.StructuredTableBlock;
 import com.pdf2tz.backend.application.pdf.model.structure.StructuredTextBlock;
 import com.pdf2tz.backend.application.ports.LlmTokenizerPort;
 import org.springframework.stereotype.Service;
@@ -29,17 +32,26 @@ public class StructuredDocumentChunker {
     private final ChunkingProperties properties;
     private final LlmTokenizerPort tokenizer;
     private final DocumentChunkSerializer serializer;
+    private final TableTextSerializer tableSerializer;
+    private final TableChunkSplitter tableChunkSplitter;
     private final TextSegmentSplitter textSegmentSplitter;
 
     public StructuredDocumentChunker(
             ChunkingProperties properties,
             LlmTokenizerPort tokenizer,
             DocumentChunkSerializer serializer,
+            TableTextSerializer tableSerializer,
+            TableChunkSplitter tableChunkSplitter,
             TextSegmentSplitter textSegmentSplitter
     ) {
         this.properties = Objects.requireNonNull(properties, "Chunking properties must not be null");
         this.tokenizer = Objects.requireNonNull(tokenizer, "Tokenizer must not be null");
         this.serializer = Objects.requireNonNull(serializer, "Chunk serializer must not be null");
+        this.tableSerializer = Objects.requireNonNull(tableSerializer, "Table serializer must not be null");
+        this.tableChunkSplitter = Objects.requireNonNull(
+                tableChunkSplitter,
+                "Table chunk splitter must not be null"
+        );
         this.textSegmentSplitter = Objects.requireNonNull(
                 textSegmentSplitter,
                 "Text segment splitter must not be null"
@@ -99,10 +111,27 @@ public class StructuredDocumentChunker {
                 continue;
             }
 
-            throw new IllegalArgumentException(
-                    "Table blocks are not supported by the text-only chunking iteration: "
-                            + block.getClass().getSimpleName()
-            );
+            if (block instanceof StructuredTableBlock tableBlock) {
+                if (pendingHeadingPath != null) {
+                    if (isPrefix(pendingHeadingPath, tableBlock.sectionPath())) {
+                        pendingHeadingPath = null;
+                        pendingHeadingRange = null;
+                    } else {
+                        chunks.add(accumulator.finishHeadingOnly(
+                                chunks.size() + 1,
+                                pendingHeadingPath,
+                                pendingHeadingRange
+                        ));
+                        pendingHeadingPath = null;
+                        pendingHeadingRange = null;
+                    }
+                }
+                accumulator = appendTableBlock(tableBlock, accumulator, chunks);
+                continue;
+            }
+
+            throw new IllegalArgumentException("Unsupported structured block: "
+                    + block.getClass().getSimpleName());
         }
 
         if (!accumulator.isEmpty()) {
@@ -117,6 +146,54 @@ public class StructuredDocumentChunker {
         }
 
         return new ChunkedDocument(chunks);
+    }
+
+    private ChunkAccumulator appendTableBlock(
+            StructuredTableBlock tableBlock,
+            ChunkAccumulator accumulator,
+            List<DocumentChunk> chunks
+    ) {
+        String wholeTable = tableSerializer.serialize(tableBlock.table());
+        if (!accumulator.isEmpty()
+                && (!accumulator.sectionPath().equals(tableBlock.sectionPath())
+                || !accumulator.canFit(wholeTable))) {
+            chunks.add(accumulator.finish(chunks.size() + 1));
+            accumulator = newAccumulator();
+        }
+
+        if (accumulator.canFit(tableBlock.sectionPath(), wholeTable)) {
+            accumulator.add(
+                    tableBlock.sectionPath(),
+                    tableBlock.pageRange(),
+                    wholeTable
+            );
+            return accumulator;
+        }
+
+        if (!accumulator.isEmpty()) {
+            chunks.add(accumulator.finish(chunks.size() + 1));
+            accumulator = newAccumulator();
+        }
+
+        ChunkAccumulator emptyAccumulator = newAccumulator();
+        ChunkAccumulator fitAccumulator = emptyAccumulator;
+        List<String> tableParts = tableChunkSplitter.split(
+                tableBlock.table(),
+                part -> fitAccumulator.canFit(tableBlock.sectionPath(), part)
+        );
+        for (String tablePart : tableParts) {
+            if (!emptyAccumulator.canFit(tableBlock.sectionPath(), tablePart)) {
+                throw new IllegalArgumentException("Table part cannot fit into chunk budget");
+            }
+            emptyAccumulator.add(
+                    tableBlock.sectionPath(),
+                    tableBlock.pageRange(),
+                    tablePart
+            );
+            chunks.add(emptyAccumulator.finish(chunks.size() + 1));
+            emptyAccumulator = newAccumulator();
+        }
+        return emptyAccumulator;
     }
 
     private ChunkAccumulator appendTextBlock(

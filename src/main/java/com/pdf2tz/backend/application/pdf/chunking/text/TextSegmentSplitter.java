@@ -2,6 +2,7 @@ package com.pdf2tz.backend.application.pdf.chunking.text;
 
 import com.pdf2tz.backend.application.ports.LlmTokenizerPort;
 import com.pdf2tz.backend.application.ports.TextBoundaryPort;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Objects;
@@ -14,6 +15,7 @@ import java.util.function.Predicate;
  * Метод не знает о section path и serializer: caller передаёт predicate,
  * который проверяет полный prospective content.</p>
  */
+@Component
 public class TextSegmentSplitter {
 
     private final TextBoundaryPort textBoundaryPort;
