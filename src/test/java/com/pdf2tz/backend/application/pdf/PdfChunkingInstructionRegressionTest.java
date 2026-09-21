@@ -74,6 +74,29 @@ class PdfChunkingInstructionRegressionTest {
         ));
     }
 
+    @Test
+    void chunksMultiPageErrorCodeTablesWithoutOverflow() throws Exception {
+        ChunkedDocument document = pipeline().chunk(content("1373694.pdf"));
+
+        assertFalse(document.chunks().isEmpty());
+        assertTrue(document.chunks().stream().allMatch(chunk ->
+                chunk.estimatedTokenCount() <= 1200
+        ));
+        assertTrue(document.chunks().stream().anyMatch(chunk ->
+                chunk.content().contains("[TABLE")
+        ));
+    }
+
+    @Test
+    void chunksLargeFileWithinConfiguredBudget() throws Exception {
+        ChunkedDocument document = pipeline().chunk(content("1373724.pdf"));
+
+        assertFalse(document.chunks().isEmpty());
+        assertTrue(document.chunks().stream().allMatch(chunk ->
+                chunk.estimatedTokenCount() <= 1200
+        ));
+    }
+
     private PdfChunkingPipeline pipeline() {
         TextCleaner cleaner = new TextCleaner();
         PdfParsingPipeline parser = new PdfParsingPipeline(
