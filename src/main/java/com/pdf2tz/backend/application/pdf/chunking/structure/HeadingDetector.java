@@ -125,11 +125,7 @@ final class HeadingDetector {
         int wordCount = countWords(headingText);
         int visibleLength = headingText.codePointCount(0, headingText.length());
         double uppercaseRatio = uppercaseRatio(headingText);
-        boolean endsWithPunctuation = headingText.codePoints()
-                .filter(Character::isWhitespace)
-                .findAny()
-                .isPresent()
-                && headingText.matches(".*[.!?,;:]$");
+        boolean endsWithPunctuation = headingText.matches(".*[.!?,;:]$");
 
         return new HeadingCandidate(
                 sourceLine,

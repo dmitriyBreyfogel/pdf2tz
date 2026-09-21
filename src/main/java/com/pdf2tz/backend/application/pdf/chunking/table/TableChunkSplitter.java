@@ -109,7 +109,13 @@ public class TableChunkSplitter {
                 continue;
             }
 
-            drafts.addAll(oversizedRowDrafts(row, index + header.size() + 1, partNumber, assumedPartCount, header, fits));
+            drafts.addAll(oversizedRowDrafts(
+                    row,
+                    index + header.size() + 1,
+                    partNumber,
+                    assumedPartCount,
+                    fits
+            ));
         }
 
         if (!currentRows.isEmpty()) {
@@ -131,7 +137,6 @@ public class TableChunkSplitter {
             int sourceRowNumber,
             int partNumber,
             int assumedPartCount,
-            List<TableRow> header,
             Predicate<String> fits
     ) {
         List<TablePartDraft> result = new ArrayList<>();
@@ -166,6 +171,9 @@ public class TableChunkSplitter {
             Predicate<String> fits
     ) {
         List<String> result = new ArrayList<>();
+        if (cellText.isBlank()) {
+            return List.of("");
+        }
         String remainder = cellText;
         while (!remainder.isBlank()) {
             String current = remainder;

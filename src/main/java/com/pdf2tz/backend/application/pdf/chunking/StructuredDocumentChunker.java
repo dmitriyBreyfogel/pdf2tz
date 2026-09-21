@@ -22,9 +22,8 @@ import java.util.Objects;
 /**
  * Разбивает структурированный документ на token-bounded chunks без overlap.
  *
- * <p>На этой итерации реализованы heading events и текстовые блоки. Таблицы
- * подключаются следующим этапом отдельным splitter-ом, чтобы не смешивать
- * правила text fallback и table row preservation.</p>
+ * <p>Текстовые блоки делятся по естественным границам, а таблицы сохраняются
+ * целиком либо делятся отдельным row-aware splitter-ом.</p>
  */
 @Service
 public class StructuredDocumentChunker {
@@ -203,11 +202,7 @@ public class StructuredDocumentChunker {
     ) {
         String remainder = textBlock.text();
         while (!remainder.isBlank()) {
-            if (accumulator.isEmpty()) {
-                if (accumulator.sectionPath() == null) {
-                    // The path is initialized by the first successful add below.
-                }
-            } else if (!accumulator.sectionPath().equals(textBlock.sectionPath())) {
+            if (!accumulator.isEmpty() && !accumulator.sectionPath().equals(textBlock.sectionPath())) {
                 chunks.add(accumulator.finish(chunks.size() + 1));
                 accumulator = replaceAccumulator();
             }

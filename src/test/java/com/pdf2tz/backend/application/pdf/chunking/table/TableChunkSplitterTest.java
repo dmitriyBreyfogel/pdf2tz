@@ -91,6 +91,23 @@ class TableChunkSplitterTest {
         assertTrue(parts.stream().anyMatch(part -> part.contains("[COLUMN 2]")));
     }
 
+    @Test
+    void preservesEmptyColumnMarkerInOversizedRowFallback() {
+        ParsedTable table = table(List.of(
+                row("Параметр", "Описание"),
+                row("Код", ""),
+                row("Код 2", "Обычное значение")
+        ));
+        SectionPath path = new SectionPath(List.of(new SectionHeading(1, "1 Operation", 1)));
+
+        List<String> parts = splitter.split(
+                table,
+                body -> tokenizer.countTokens(documentSerializer.serialize(path, List.of(body))) <= 30
+        );
+
+        assertTrue(parts.stream().anyMatch(part -> part.contains("[COLUMN 2]")));
+    }
+
     private ParsedTable table(List<TableRow> rows) {
         return new ParsedTable(List.of(
                 new TableFragment(
