@@ -95,6 +95,36 @@ class StructuredDocumentChunkerTest {
     }
 
     @Test
+    void keepsSiblingSectionsSeparateAndIsDeterministic() {
+        ChunkingProperties properties = new ChunkingProperties();
+        StructuredDocumentChunker chunker = chunker(properties);
+        SectionPath first = new SectionPath(List.of(new SectionHeading(1, "1 Main", 1)));
+        SectionPath second = new SectionPath(List.of(new SectionHeading(1, "2 Appendix", 2)));
+        StructuredDocument document = new StructuredDocument(List.of(
+                new StructuredHeadingBlock(first),
+                new StructuredTextBlock(
+                        first,
+                        com.pdf2tz.backend.application.pdf.model.document.PageRange.single(1),
+                        "Main body"
+                ),
+                new StructuredHeadingBlock(second),
+                new StructuredTextBlock(
+                        second,
+                        com.pdf2tz.backend.application.pdf.model.document.PageRange.single(2),
+                        "Appendix body"
+                )
+        ));
+
+        ChunkedDocument firstRun = chunker.chunk(document);
+        ChunkedDocument secondRun = chunker.chunk(document);
+
+        assertEquals(firstRun, secondRun);
+        assertEquals(List.of(first, second), firstRun.chunks().stream()
+                .map(chunk -> chunk.sectionPath())
+                .toList());
+    }
+
+    @Test
     void preservesTableInChunkAndKeepsItBounded() {
         ChunkingProperties properties = new ChunkingProperties();
         properties.setMaxTokens(128);
