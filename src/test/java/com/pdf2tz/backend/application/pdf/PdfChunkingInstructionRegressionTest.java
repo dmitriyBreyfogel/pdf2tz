@@ -27,6 +27,7 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -52,6 +53,27 @@ class PdfChunkingInstructionRegressionTest {
         assertTrue(document.chunks().stream().anyMatch(chunk ->
                 chunk.content().contains("Новорожденные")
         ));
+        assertTrue(document.chunks().stream().anyMatch(chunk ->
+                chunk.sectionPath().headings().stream()
+                        .map(heading -> heading.text())
+                        .toList().equals(List.of("Эксплуатация", "Усиленная подача кислорода"))
+        ));
+        assertTrue(document.chunks().stream().anyMatch(chunk ->
+                chunk.sectionPath().headings().stream()
+                        .map(heading -> heading.text())
+                        .toList().equals(List.of("Техническое обслуживание", "Обзор"))
+        ));
+        assertTrue(document.chunks().stream().noneMatch(chunk -> {
+            List<String> headings = chunk.sectionPath().headings().stream()
+                    .map(heading -> heading.text())
+                    .toList();
+            return headings.size() > 1
+                    && headings.get(0).equals(headings.get(1));
+        }));
+        assertTrue(document.chunks().stream().noneMatch(chunk ->
+                chunk.sectionPath().headings().stream()
+                        .anyMatch(heading -> heading.text().startsWith("1 Извлечь предохранитель"))
+        ));
     }
 
     @Test
@@ -62,6 +84,13 @@ class PdfChunkingInstructionRegressionTest {
         assertTrue(document.chunks().stream().allMatch(chunk ->
                 chunk.estimatedTokenCount() <= 1200
         ));
+        assertTrue(document.chunks().stream().noneMatch(chunk ->
+                chunk.sectionPath().headings().stream()
+                        .anyMatch(heading -> heading.text().matches(".*(?:34209|B\\. Braun|В\\. Braun).*"))
+        ));
+        assertTrue(document.chunks().stream().anyMatch(chunk ->
+                chunk.content().contains("34209")
+        ));
     }
 
     @Test
@@ -71,6 +100,10 @@ class PdfChunkingInstructionRegressionTest {
         assertFalse(document.chunks().isEmpty());
         assertTrue(document.chunks().stream().allMatch(chunk ->
                 chunk.estimatedTokenCount() <= 1200
+        ));
+        assertTrue(document.chunks().stream().noneMatch(chunk ->
+                chunk.sectionPath().headings().stream()
+                        .anyMatch(heading -> heading.text().contains("дыхание.Переведите"))
         ));
     }
 
