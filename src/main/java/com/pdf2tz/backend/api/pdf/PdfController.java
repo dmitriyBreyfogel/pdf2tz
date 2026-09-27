@@ -1,14 +1,18 @@
 package com.pdf2tz.backend.api.pdf;
 
+import com.pdf2tz.backend.api.pdf.dto.PdfChunkedDocumentResponseDto;
 import com.pdf2tz.backend.api.pdf.dto.PdfParsedDocumentResponseDto;
 import com.pdf2tz.backend.api.pdf.dto.PdfResponseDto;
 import com.pdf2tz.backend.api.pdf.dto.PdfTablesResponseDto;
 import com.pdf2tz.backend.api.pdf.mapper.PdfParsedDocumentResponseMapper;
+import com.pdf2tz.backend.api.pdf.mapper.PdfChunkedDocumentResponseMapper;
 import com.pdf2tz.backend.api.pdf.mapper.PdfResponseMapper;
 import com.pdf2tz.backend.api.pdf.mapper.PdfTableResponseMapper;
+import com.pdf2tz.backend.application.pdf.PdfChunkingPipeline;
 import com.pdf2tz.backend.application.pdf.PdfParsingPipeline;
 import com.pdf2tz.backend.application.pdf.PdfTableParsingPipeline;
 import com.pdf2tz.backend.application.pdf.model.document.ParsedDocument;
+import com.pdf2tz.backend.application.pdf.model.chunk.ChunkedDocument;
 import com.pdf2tz.backend.application.pdf.model.cleaning.CleanedTextDocument;
 import com.pdf2tz.backend.application.pdf.model.table.ParsedTable;
 import org.springframework.http.ResponseEntity;
@@ -22,25 +26,31 @@ public class PdfController implements PdfApi {
 
     private final PdfUploadReader pdfUploadReader;
     private final PdfParsingPipeline pdfParsingPipeline;
+    private final PdfChunkingPipeline pdfChunkingPipeline;
     private final PdfTableParsingPipeline pdfTableParsingPipeline;
     private final PdfResponseMapper pdfResponseMapper;
     private final PdfTableResponseMapper pdfTableResponseMapper;
     private final PdfParsedDocumentResponseMapper pdfParsedDocumentResponseMapper;
+    private final PdfChunkedDocumentResponseMapper pdfChunkedDocumentResponseMapper;
 
     public PdfController(
             PdfUploadReader pdfUploadReader,
             PdfParsingPipeline pdfParsingPipeline,
+            PdfChunkingPipeline pdfChunkingPipeline,
             PdfTableParsingPipeline pdfTableParsingPipeline,
             PdfResponseMapper pdfResponseMapper,
             PdfTableResponseMapper pdfTableResponseMapper,
-            PdfParsedDocumentResponseMapper pdfParsedDocumentResponseMapper
+            PdfParsedDocumentResponseMapper pdfParsedDocumentResponseMapper,
+            PdfChunkedDocumentResponseMapper pdfChunkedDocumentResponseMapper
     ) {
         this.pdfUploadReader = pdfUploadReader;
         this.pdfParsingPipeline = pdfParsingPipeline;
+        this.pdfChunkingPipeline = pdfChunkingPipeline;
         this.pdfTableParsingPipeline = pdfTableParsingPipeline;
         this.pdfResponseMapper = pdfResponseMapper;
         this.pdfTableResponseMapper = pdfTableResponseMapper;
         this.pdfParsedDocumentResponseMapper = pdfParsedDocumentResponseMapper;
+        this.pdfChunkedDocumentResponseMapper = pdfChunkedDocumentResponseMapper;
     }
 
     @Override
@@ -65,5 +75,13 @@ public class PdfController implements PdfApi {
         ParsedDocument document = pdfParsingPipeline.parse(content);
 
         return ResponseEntity.ok(pdfParsedDocumentResponseMapper.toResponse(document));
+    }
+
+    @Override
+    public ResponseEntity<PdfChunkedDocumentResponseDto> chunkDocument(MultipartFile file) {
+        byte[] content = pdfUploadReader.read(file);
+        ChunkedDocument document = pdfChunkingPipeline.chunk(content);
+
+        return ResponseEntity.ok(pdfChunkedDocumentResponseMapper.toResponse(document));
     }
 }

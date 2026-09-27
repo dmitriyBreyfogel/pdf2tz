@@ -1,5 +1,6 @@
 package com.pdf2tz.backend.api.pdf;
 
+import com.pdf2tz.backend.api.pdf.dto.PdfChunkedDocumentResponseDto;
 import com.pdf2tz.backend.api.pdf.dto.PdfParsedDocumentResponseDto;
 import com.pdf2tz.backend.api.pdf.dto.PdfResponseDto;
 import com.pdf2tz.backend.api.pdf.dto.PdfTablesResponseDto;
@@ -71,6 +72,26 @@ public interface PdfApi {
      */
     @PostMapping("/parsed")
     ResponseEntity<PdfParsedDocumentResponseDto> parseDocument(
+            @RequestParam("file")
+            MultipartFile file
+    );
+
+    /**
+     * Структурное разбиение PDF-документа на bounded chunks для будущей передачи
+     * в LLM.
+     *
+     * @param file PDF-файл
+     * @return chunks с section path, страницами, token count и готовым content
+     * @throws com.pdf2tz.backend.error.AppException с кодом:
+     *  <ul>
+     *      <li>{@code FILE_EMPTY} - файл пуст</li>
+     *      <li>{@code FILE_READ_ERROR} - ошибка чтения файла</li>
+     *      <li>{@code PDF_PARSE_ERROR} - не удалось распарсить PDF-файл</li>
+     *      <li>{@code UNSUPPORTED_FILE_TYPE} - файл не поддерживаемого формата</li>
+     *  </ul>
+     */
+    @PostMapping("/chunks")
+    ResponseEntity<PdfChunkedDocumentResponseDto> chunkDocument(
             @RequestParam("file")
             MultipartFile file
     );
