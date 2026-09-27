@@ -74,6 +74,37 @@ class PdfChunkingInstructionRegressionTest {
                 chunk.sectionPath().headings().stream()
                         .anyMatch(heading -> heading.text().startsWith("1 Извлечь предохранитель"))
         ));
+        assertTrue(document.chunks().stream().noneMatch(chunk ->
+                chunk.sectionPath().headings().stream()
+                        .anyMatch(heading -> heading.text().contains("113Подтверждение"))
+        ));
+    }
+
+    @Test
+    void chunksCompactInstructionUsingCorruptedContentsPageNumbers() throws Exception {
+        ChunkedDocument document = pipeline().chunk(content("88888888.pdf"));
+
+        assertTrue(document.chunks().stream().anyMatch(chunk ->
+                chunk.sectionPath().headings().stream()
+                        .anyMatch(heading -> heading.text().equals("Работа с прибором"))
+        ));
+        assertTrue(document.chunks().stream().anyMatch(chunk ->
+                chunk.sectionPath().headings().stream()
+                        .anyMatch(heading -> heading.text().equals("Работа от сети/батареек"))
+        ));
+        assertTrue(document.chunks().stream().allMatch(chunk ->
+                chunk.sectionPath().headings().size() <= 1
+                        && chunk.estimatedTokenCount() <= 1200
+        ));
+    }
+
+    @Test
+    void doesNotApplyPrintedContentsPagesToRomanNumberedFrontMatter() throws Exception {
+        ChunkedDocument document = pipeline().chunk(content("1373589.pdf"));
+
+        assertTrue(document.chunks().stream()
+                .filter(chunk -> chunk.pageRange().startPageNumber() <= 4)
+                .allMatch(chunk -> chunk.sectionPath().isRoot()));
     }
 
     @Test
@@ -128,6 +159,26 @@ class PdfChunkingInstructionRegressionTest {
         assertTrue(document.chunks().stream().allMatch(chunk ->
                 chunk.estimatedTokenCount() <= 1200
         ));
+    }
+
+    @Test
+    void keepsOcrLogosAndFigureLabelsOutOfMultilingualSectionPaths() throws Exception {
+        ChunkedDocument document = pipeline().chunk(content("1373228.pdf"));
+
+        assertFalse(document.chunks().isEmpty());
+        assertTrue(document.chunks().stream().allMatch(chunk ->
+                chunk.estimatedTokenCount() <= 1200));
+        assertTrue(document.chunks().stream().noneMatch(chunk ->
+                chunk.sectionPath().headings().stream().anyMatch(heading ->
+                        heading.text().contains("SIXSilZ")
+                                || heading.text().equals("QQQDI")
+                                || heading.text().equals("POWER Cut"))));
+        assertTrue(document.chunks().stream().anyMatch(chunk ->
+                chunk.content().contains("POWER Cut")));
+        assertTrue(document.chunks().stream().noneMatch(chunk ->
+                chunk.pageRange().startPageNumber() >= 250
+                        && chunk.sectionPath().headings().stream().anyMatch(heading ->
+                                heading.text().equals("10.2 Графики мощности, напряжения и тока"))));
     }
 
     private PdfChunkingPipeline pipeline() {
