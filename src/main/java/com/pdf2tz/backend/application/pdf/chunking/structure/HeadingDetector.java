@@ -57,9 +57,25 @@ final class HeadingDetector {
     private static final Pattern NON_WORD_PATTERN = Pattern.compile("[^\\p{L}\\p{N}]+");
 
     List<HeadingCandidate> detect(List<SourceLine> lines) {
+        return detect(lines, new ContentsRegionDetector().analyze(lines));
+    }
+
+    List<HeadingCandidate> detect(
+            List<SourceLine> lines,
+            ContentsRegionDetector.ContentsProfile contentsProfile
+    ) {
         List<HeadingCandidate> candidates = new ArrayList<>();
-        ContentsRegionDetector.ContentsProfile contentsProfile =
-                new ContentsRegionDetector().analyze(lines);
+        Set<Integer> pageHeaderOrders = new RepeatedPageHeaderDetector().detect(lines);
+        Set<Integer> pagesWithRepeatedHeader = new HashSet<>();
+        Map<Integer, Integer> firstOrderByPage = new HashMap<>();
+        for (SourceLine line : lines) {
+            firstOrderByPage.putIfAbsent(line.pageNumber(), line.order());
+            if (pageHeaderOrders.contains(line.order())) {
+                pagesWithRepeatedHeader.add(line.pageNumber());
+            }
+        }
+        boolean runningHeaderDominates = pagesWithRepeatedHeader.size() >= 3
+                && pagesWithRepeatedHeader.size() * 2 >= firstOrderByPage.size();
 
         for (SourceLine line : lines) {
             HeadingCandidate candidate = candidate(
@@ -67,7 +83,16 @@ final class HeadingDetector {
                     contentsProfile.tocLineOrders().contains(line.order()),
                     contentsProfile.headingPages()
             );
-            if (candidate != null) {
+            if (pageHeaderOrders.contains(line.order())
+                    && (candidate == null || !candidate.contentsCatalogMatch())
+                    && !line.text().trim().matches("^\\d+(?:\\.\\d+)+[.)]?\\s+\\p{L}.*")) {
+                continue;
+            }
+            if (candidate != null
+                    && !(runningHeaderDominates
+                    && firstOrderByPage.get(line.pageNumber()) == line.order()
+                    && candidate.scheme() == HeadingScheme.UNNUMBERED_UPPERCASE
+                    && !candidate.contentsCatalogMatch())) {
                 candidates.add(candidate);
             }
         }
@@ -80,7 +105,7 @@ final class HeadingDetector {
                     normalizeTitle(candidate.headingText())
             ), 1, Integer::sum);
         }
-        return candidates.stream()
+        List<HeadingCandidate> accepted = candidates.stream()
                 .map(candidate -> candidate.withRepeatedOnSourcePage(
                         occurrences.get(new PageTitle(
                                 candidate.sourceLine().pageNumber(),
@@ -89,6 +114,60 @@ final class HeadingDetector {
                 ))
                 .filter(candidate -> accepted(candidate, profile))
                 .toList();
+        return addUnambiguousCatalogHeadings(lines, accepted, contentsProfile);
+    }
+
+    /**
+     * Пункт оглавления с единственной целевой страницей может восстановить
+     * пропавший заголовок. Исходная строка страницы остаётся обычным текстом.
+     */
+    private List<HeadingCandidate> addUnambiguousCatalogHeadings(
+            List<SourceLine> lines,
+            List<HeadingCandidate> accepted,
+            ContentsRegionDetector.ContentsProfile contentsProfile
+    ) {
+        long verifiedHeadings = accepted.stream()
+                .filter(HeadingCandidate::contentsCatalogMatch)
+                .count();
+        if (verifiedHeadings < 2) {
+            return accepted;
+        }
+
+        Set<Integer> pagesWithHeading = accepted.stream()
+                .map(candidate -> candidate.sourceLine().pageNumber())
+                .collect(java.util.stream.Collectors.toSet());
+        Map<Integer, SourceLine> firstLineByPage = new HashMap<>();
+        for (SourceLine line : lines) {
+            firstLineByPage.putIfAbsent(line.pageNumber(), line);
+        }
+
+        List<HeadingCandidate> result = new ArrayList<>(accepted);
+        for (Map.Entry<Integer, List<String>> entry : contentsProfile.titlesByPage().entrySet()) {
+            int pageNumber = entry.getKey();
+            if (entry.getValue().size() != 1 || pagesWithHeading.contains(pageNumber)) {
+                continue;
+            }
+            SourceLine anchor = firstLineByPage.get(pageNumber);
+            String title = entry.getValue().get(0);
+            if (anchor == null
+                    || contentsProfile.tocLineOrders().contains(anchor.order())
+                    || !isReliableCatalogTitle(title)) {
+                continue;
+            }
+            result.add(createCandidate(
+                    anchor, HeadingScheme.TITLE_CASE, title,
+                    List.of(), false, true
+            ).asInferredFromContents());
+        }
+        result.sort(java.util.Comparator.comparingInt(candidate -> candidate.sourceLine().order()));
+        return List.copyOf(result);
+    }
+
+    private boolean isReliableCatalogTitle(String title) {
+        return looksLikeTitleCase(title)
+                && title.codePointCount(0, title.length()) <= 100
+                && !title.matches("(?s).*\\d{2,4}\\p{L}.*")
+                && !title.matches("(?s).*\\p{Ll}[\\s\\p{Z}]+\\p{Lu}\\p{Ll}{2,}.*");
     }
 
     private HeadingCandidate candidate(
@@ -188,6 +267,7 @@ final class HeadingDetector {
                 endsWithPunctuation,
                 tocLike,
                 contentsCatalogMatch,
+                false,
                 false
         );
     }
@@ -212,13 +292,22 @@ final class HeadingDetector {
             return profile.romanCount() >= 2;
         }
         if (candidate.scheme() == HeadingScheme.LETTER) {
-            return profile.hasLetterSequence();
+            return candidate.contentsCatalogMatch()
+                    || candidate.sourceLine().lineIndex() <= 3
+                    && candidate.wordCount() <= 7
+                    && candidate.visibleLength() <= 80
+                    && !candidate.headingText().contains(":")
+                    && candidate.headingText().codePoints().noneMatch(Character::isDigit)
+                    && profile.hasNearbyLetterSequence(candidate);
         }
         if (candidate.scheme() == HeadingScheme.TITLE_CASE) {
             return candidate.contentsCatalogMatch();
         }
         if (candidate.contentsCatalogMatch()) {
             return true;
+        }
+        if (profile.hasEstablishedNumberedHierarchy()) {
+            return false;
         }
         if (candidate.sourceLine().lineIndex() > 3
                 || containsShortToken(candidate.headingText())) {
@@ -256,6 +345,7 @@ final class HeadingDetector {
         // Без подтверждения оглавлением принимаем только короткое название раздела.
         if (candidate.numbering().get(0) == 0
                 || candidate.numbering().get(0) > MAX_UNCATALOGUED_SECTION_NUMBER
+                || candidate.headingText().codePoints().filter(Character::isLetter).count() < 3
                 || candidate.wordCount() > MAX_UNCATALOGUED_HEADING_WORDS
                 || candidate.visibleLength() > MAX_UNCATALOGUED_HEADING_LENGTH
                 || !Character.isUpperCase(candidate.headingText().codePointAt(0))) {
@@ -300,14 +390,54 @@ final class HeadingDetector {
             SourceLine sourceLine,
             Map<String, Set<Integer>> contentsHeadingPages
     ) {
-        Set<Integer> expectedPages = contentsHeadingPages.get(normalizeTitle(text));
-        if (expectedPages == null || expectedPages.isEmpty()) {
+        String normalizedText = normalizeTitle(text);
+        if (containsMultipleCatalogTitles(
+                normalizedText, sourceLine.pageNumber(), contentsHeadingPages)) {
             return false;
         }
+        Set<Integer> exactPages = contentsHeadingPages.get(normalizedText);
+        if (exactPages != null && matchesSourcePage(exactPages, sourceLine.pageNumber())) {
+            return true;
+        }
+        if (sourceLine.lineIndex() > 2) {
+            return false;
+        }
+        for (Map.Entry<String, Set<Integer>> entry : contentsHeadingPages.entrySet()) {
+            String catalogTitle = entry.getKey();
+            if (catalogTitle.length() < 5
+                    || !(normalizedText.startsWith(catalogTitle + " ")
+                    || normalizedText.endsWith(" " + catalogTitle)
+                    || normalizedText.endsWith(catalogTitle))) {
+                continue;
+            }
+            if (matchesSourcePage(entry.getValue(), sourceLine.pageNumber())) {
+                return true;
+            }
+        }
+        return false;
+    }
 
-        return expectedPages.stream()
-                .anyMatch(expectedPage -> Math.abs(expectedPage - sourceLine.pageNumber())
-                        <= MAX_CONTENTS_PAGE_DELTA);
+    private boolean containsMultipleCatalogTitles(
+            String text,
+            int pageNumber,
+            Map<String, Set<Integer>> contentsHeadingPages
+    ) {
+        for (int separator = text.indexOf(' '); separator >= 0;
+             separator = text.indexOf(' ', separator + 1)) {
+            Set<Integer> firstPages = contentsHeadingPages.get(text.substring(0, separator));
+            Set<Integer> secondPages = contentsHeadingPages.get(text.substring(separator + 1));
+            if (firstPages != null && secondPages != null
+                    && matchesSourcePage(firstPages, pageNumber)
+                    && matchesSourcePage(secondPages, pageNumber)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean matchesSourcePage(Set<Integer> expectedPages, int sourcePageNumber) {
+        return expectedPages.stream().anyMatch(expectedPage ->
+                Math.abs(expectedPage - sourcePageNumber) <= MAX_CONTENTS_PAGE_DELTA);
     }
 
     private boolean looksLikeTitleCase(String text) {
@@ -358,7 +488,8 @@ final class HeadingDetector {
     private String normalizeTitle(String text) {
         return text
                 .replace('\u00A0', ' ')
-                .replaceAll("\\s+", " ")
+                .replaceAll("[\\s\\p{Z}]+", " ")
+                .replaceAll(" */ *", "/")
                 .trim()
                 .toLowerCase(Locale.ROOT);
     }
@@ -394,7 +525,7 @@ final class HeadingDetector {
             int decimalLevelOneCount,
             Set<Integer> decimalDepths,
             int romanCount,
-            Set<Integer> letterMarkers,
+            List<HeadingCandidate> letterCandidates,
             int uppercaseCount,
             Map<String, Integer> normalizedTextCounts,
             Set<String> markerLabels
@@ -406,7 +537,6 @@ final class HeadingDetector {
         ) {
             Map<HeadingScheme, Integer> counts = new HashMap<>();
             Set<Integer> decimalDepths = new HashSet<>();
-            Set<Integer> letterMarkers = new HashSet<>();
             int decimalLevelOneCount = 0;
 
             for (HeadingCandidate candidate : candidates) {
@@ -417,11 +547,6 @@ final class HeadingDetector {
                         decimalLevelOneCount++;
                     }
                 }
-                if (candidate.scheme() == HeadingScheme.LETTER) {
-                    letterMarkers.add(Character.toUpperCase(
-                            candidate.sourceLine().text().trim().codePointAt(0)
-                    ));
-                }
             }
 
             return new DocumentHeadingProfile(
@@ -429,7 +554,9 @@ final class HeadingDetector {
                     decimalLevelOneCount,
                     Set.copyOf(decimalDepths),
                     counts.getOrDefault(HeadingScheme.ROMAN, 0),
-                    Set.copyOf(letterMarkers),
+                    candidates.stream()
+                            .filter(candidate -> candidate.scheme() == HeadingScheme.LETTER)
+                            .toList(),
                     counts.getOrDefault(HeadingScheme.UNNUMBERED_UPPERCASE, 0),
                     textCounts(lines),
                     markerLabels(lines)
@@ -473,15 +600,36 @@ final class HeadingDetector {
             return normalizedTextCounts.getOrDefault(normalize(text), 0);
         }
 
-        private boolean hasLetterSequence() {
-            return letterMarkers.size() >= 2
-                    && (letterMarkers.contains((int) 'A') || letterMarkers.contains((int) 'А'));
+        /** Нумерованный стиль подтверждается несколькими разделами второго уровня,
+         * а не одиночными числами, похожими на пункты процедуры. */
+        private boolean hasEstablishedNumberedHierarchy() {
+            return decimalCount >= 12 && decimalDepths.contains(2);
+        }
+
+        private boolean hasNearbyLetterSequence(HeadingCandidate candidate) {
+            int marker = letterMarker(candidate);
+            return letterCandidates.stream()
+                    .filter(other -> Math.abs(other.sourceLine().pageNumber()
+                            - candidate.sourceLine().pageNumber()) <= 2)
+                    .anyMatch(other -> {
+                        int otherMarker = letterMarker(other);
+                        return otherMarker != marker
+                                && (marker == 'A' || marker == 'А'
+                                || otherMarker == 'A' || otherMarker == 'А');
+                    });
+        }
+
+        private static int letterMarker(HeadingCandidate candidate) {
+            return Character.toUpperCase(
+                    candidate.sourceLine().text().trim().codePointAt(0)
+            );
         }
 
         private static String normalize(String text) {
             return text
                     .replace('\u00A0', ' ')
-                    .replaceAll("\\s+", " ")
+                    .replaceAll("[\\s\\p{Z}]+", " ")
+                    .replaceAll(" */ *", "/")
                     .trim()
                     .toLowerCase(Locale.ROOT);
         }

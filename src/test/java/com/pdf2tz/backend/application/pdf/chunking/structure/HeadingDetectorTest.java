@@ -62,6 +62,27 @@ class HeadingDetectorTest {
     }
 
     @Test
+    void doesNotReplaceEstablishedNumberedHierarchyWithUncataloguedFigureLabels() {
+        List<SourceLine> lines = new java.util.ArrayList<>();
+        int order = 0;
+        for (int section = 1; section <= 4; section++) {
+            for (int subsection = 1; subsection <= 3; subsection++) {
+                lines.add(new SourceLine(section, 0, subsection, order++,
+                        section + "." + subsection + " Раздел прибора"));
+            }
+        }
+        lines.add(new SourceLine(5, 0, 0, order++, "KARL STORZ ENDOSKOPE"));
+        lines.add(new SourceLine(5, 0, 1, order++, "QQQDI"));
+        lines.add(new SourceLine(5, 0, 2, order, "POWER Cut"));
+
+        List<HeadingCandidate> headings = detector.detect(lines);
+
+        assertEquals(12, headings.size());
+        assertTrue(headings.stream().allMatch(candidate ->
+                candidate.scheme() == HeadingScheme.DECIMAL));
+    }
+
+    @Test
     void usesContentsAsCatalogForTitleCaseHeadingsWithoutTreatingContentsAsStructure() {
         List<SourceLine> lines = List.of(
                 new SourceLine(1, 0, 0, 0, "Содержание"),
@@ -80,6 +101,87 @@ class HeadingDetectorTest {
                 List.of("Эксплуатация", "Страница режима ожидания после запуска"),
                 headings.stream().map(candidate -> candidate.sourceLine().text()).toList()
         );
+    }
+
+    @Test
+    void matchesCatalogTitleInPageHeadingWithProductPrefixOrSuffix() {
+        List<SourceLine> lines = List.of(
+                new SourceLine(3, 0, 0, 0, "Содержание"),
+                new SourceLine(3, 0, 1, 1, "Перфузор компакт С / Обзор�������� 4"),
+                new SourceLine(3, 0, 2, 2, "Специальные функции�������� 7"),
+                new SourceLine(3, 0, 3, 3, "Совместимые шприцы�������� 12"),
+                new SourceLine(3, 0, 4, 4, "Технические характеристики�������� 13"),
+                new SourceLine(4, 0, 1, 5, "Обзор Perfusor Compact® S"),
+                new SourceLine(13, 0, 1, 6, "Perfusor Compact® SТехнические характеристики")
+        );
+
+        assertEquals(
+                List.of("Обзор Perfusor Compact® S",
+                        "Perfusor Compact® SТехнические характеристики"),
+                detector.detect(lines).stream()
+                        .map(candidate -> candidate.sourceLine().text())
+                        .toList()
+        );
+    }
+
+    @Test
+    void doesNotInferMergedContentsEntriesAsHeadings() {
+        List<SourceLine> lines = List.of(
+                new SourceLine(1, 0, 0, 0, "Содержание"),
+                new SourceLine(1, 0, 1, 1, "Работа с прибором ........ 2"),
+                new SourceLine(1, 0, 2, 2, "Особые функции ........ 3"),
+                new SourceLine(1, 0, 3, 3, "Совместимые шприцы ........ 4"),
+                new SourceLine(1, 0, 4, 4, "Принадлежности Подключаемые устройства ........ 5"),
+                new SourceLine(1, 0, 5, 5,
+                        "Режим вентиляции SIMV/PS 113Подтверждение настроек ........ 6"),
+                new SourceLine(2, 0, 0, 6, "2"),
+                new SourceLine(3, 0, 0, 7, "Особые функции"),
+                new SourceLine(4, 0, 0, 8, "Совместимые шприцы"),
+                new SourceLine(5, 0, 0, 9, "5"),
+                new SourceLine(6, 0, 0, 10, "6")
+        );
+
+        assertEquals(
+                List.of("Работа с прибором", "Особые функции", "Совместимые шприцы"),
+                detector.detect(lines).stream()
+                        .map(HeadingCandidate::headingText)
+                        .toList()
+        );
+    }
+
+    @Test
+    void keepsTwoCatalogHeadingsMergedIntoOneSourceLineAsBody() {
+        List<SourceLine> lines = List.of(
+                new SourceLine(1, 0, 0, 0, "Содержание"),
+                new SourceLine(1, 0, 1, 1, "Использование ........ 7"),
+                new SourceLine(1, 0, 2, 2,
+                        "Принадлежности ........ 9Подключаемые устройства ........ 9"),
+                new SourceLine(1, 0, 3, 3, "Обслуживание ........ 12"),
+                new SourceLine(1, 0, 4, 4, "Утилизация ........ 15"),
+                new SourceLine(9, 0, 2, 5, "Принадлежности Подключаемые устройства")
+        );
+
+        assertTrue(detector.detect(lines).stream().noneMatch(candidate ->
+                candidate.sourceLine().pageNumber() == 9));
+    }
+
+    @Test
+    void requiresNearbyLetteredSectionsInsteadOfUnrelatedWarningsAndCompanyNames() {
+        List<SourceLine> unrelated = List.of(
+                new SourceLine(44, 0, 0, 0, "A. Предупреждение: При коротком замыкании"),
+                new SourceLine(92, 0, 0, 1,
+                        "B. Braun Medical AG HellDur H plus N 1 .2 . 3Stabimed")
+        );
+        assertTrue(detector.detect(unrelated).isEmpty());
+
+        List<SourceLine> sections = List.of(
+                new SourceLine(2, 0, 0, 0, "A. Назначение"),
+                new SourceLine(3, 0, 0, 1, "B. Обслуживание")
+        );
+        assertEquals(List.of("A. Назначение", "B. Обслуживание"),
+                detector.detect(sections).stream()
+                        .map(candidate -> candidate.sourceLine().text())
+                        .toList());
     }
 
     @Test

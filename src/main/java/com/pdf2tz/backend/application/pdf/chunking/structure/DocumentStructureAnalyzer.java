@@ -29,7 +29,8 @@ import java.util.Set;
  * <p>Анализатор не изменяет исходный документ и не знает о token budget.
  * Текстовые строки, которые не прошли детектор заголовков, остаются body-текстом.
  * Таблицы сохраняются как отдельные логические блоки и получают только тот путь,
- * который можно обосновать доступным постраничным контекстом.</p>
+ * который можно обосновать доступным постраничным контекстом. Повторное
+ * оглавление сбрасывает путь раздела в составных PDF.</p>
  */
 @Service
 public class DocumentStructureAnalyzer {
@@ -54,14 +55,25 @@ public class DocumentStructureAnalyzer {
         Objects.requireNonNull(document, "Parsed document must not be null");
 
         List<SourceLine> sourceLines = sourceLines(document);
-        List<HeadingCandidate> acceptedHeadings = headingDetector.detect(sourceLines);
+        ContentsRegionDetector.ContentsProfile contentsProfile =
+                new ContentsRegionDetector().analyze(sourceLines);
+        List<HeadingCandidate> acceptedHeadings = headingDetector.detect(
+                sourceLines, contentsProfile);
+        Set<Integer> contentsPages = sourceLines.stream()
+                .filter(line -> contentsProfile.tocLineOrders().contains(line.order()))
+                .map(SourceLine::pageNumber)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        boolean hasTopLevelAnchors = acceptedHeadings.stream()
+                .filter(candidate -> candidate.scheme() == HeadingScheme.TITLE_CASE)
+                .filter(HeadingCandidate::repeatedOnSourcePage)
+                .count() >= 2;
         Map<Integer, HeadingCandidate> headingsByOrder = acceptedHeadings.stream()
                 .collect(java.util.stream.Collectors.toUnmodifiableMap(
                         candidate -> candidate.sourceLine().order(),
                         candidate -> candidate
                 ));
 
-        return assemble(document, headingsByOrder);
+        return assemble(document, headingsByOrder, hasTopLevelAnchors, contentsPages);
     }
 
     private List<SourceLine> sourceLines(ParsedDocument document) {
@@ -95,13 +107,20 @@ public class DocumentStructureAnalyzer {
 
     private StructuredDocument assemble(
             ParsedDocument document,
-            Map<Integer, HeadingCandidate> headingsByOrder
+            Map<Integer, HeadingCandidate> headingsByOrder,
+            boolean hasTopLevelAnchors,
+            Set<Integer> contentsPages
     ) {
         List<StructuredDocumentBlock> result = new ArrayList<>();
         SectionPath currentPath = SectionPath.root();
         int sourceOrder = 0;
 
         for (ParsedPage page : document.pages()) {
+            // Повторное оглавление в сборном PDF обозначает новую границу документа.
+            // Без сброса путь последнего раздела предыдущей инструкции «протечёт» дальше.
+            if (contentsPages.contains(page.pageNumber())) {
+                currentPath = SectionPath.root();
+            }
             SectionPath pathBeforePage = currentPath;
             Set<SectionPath> pathsOnPage = new LinkedHashSet<>();
             TextAccumulator textAccumulator = new TextAccumulator();
@@ -115,16 +134,24 @@ public class DocumentStructureAnalyzer {
                             HeadingCandidate heading = headingsByOrder.get(sourceOrder++);
                             if (heading != null) {
                                 if (isDuplicateCurrentHeading(currentPath, heading)) {
+                                    if (heading.inferredFromContents()) {
+                                        textAccumulator.add(line, page.pageNumber(), currentPath);
+                                        pathsOnPage.add(currentPath);
+                                    }
                                     continue;
                                 }
                                 flushText(textAccumulator, result);
                                 currentPath = advancePath(
                                         currentPath,
                                         heading,
-                                        headingsByOrder.values()
+                                        headingsByOrder.values(),
+                                        hasTopLevelAnchors
                                 );
                                 result.add(new StructuredHeadingBlock(currentPath));
                                 pathsOnPage.add(currentPath);
+                                if (heading.inferredFromContents()) {
+                                    textAccumulator.add(line, page.pageNumber(), currentPath);
+                                }
                             } else {
                                 textAccumulator.add(line, page.pageNumber(), currentPath);
                                 pathsOnPage.add(currentPath);
@@ -153,13 +180,15 @@ public class DocumentStructureAnalyzer {
     private SectionPath advancePath(
             SectionPath currentPath,
             HeadingCandidate candidate,
-            java.util.Collection<HeadingCandidate> acceptedCandidates
+            java.util.Collection<HeadingCandidate> acceptedCandidates,
+            boolean hasTopLevelAnchors
     ) {
         boolean letterAsNested = acceptedCandidates.stream()
                 .filter(other -> other.scheme() == HeadingScheme.LETTER)
                 .count() >= 2
                 && !currentPath.isRoot();
         boolean titleCaseNested = candidate.scheme() == HeadingScheme.TITLE_CASE
+                && hasTopLevelAnchors
                 && !currentPath.isRoot()
                 && !candidate.repeatedOnSourcePage();
 

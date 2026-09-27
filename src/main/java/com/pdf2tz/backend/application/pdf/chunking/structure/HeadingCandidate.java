@@ -16,6 +16,7 @@ import java.util.List;
  * @param tocLike признак строки, похожей на элемент содержания
  * @param contentsCatalogMatch признак подтверждения заголовка оглавлением
  * @param repeatedOnSourcePage признак повторения того же заголовка на странице
+ * @param inferredFromContents заголовок взят из оглавления; исходная строка лишь задаёт позицию
  */
 record HeadingCandidate(
         SourceLine sourceLine,
@@ -28,7 +29,8 @@ record HeadingCandidate(
         boolean endsWithPunctuation,
         boolean tocLike,
         boolean contentsCatalogMatch,
-        boolean repeatedOnSourcePage
+        boolean repeatedOnSourcePage,
+        boolean inferredFromContents
 ) {
 
     HeadingCandidate withRepeatedOnSourcePage(boolean repeated) {
@@ -43,7 +45,16 @@ record HeadingCandidate(
                 endsWithPunctuation,
                 tocLike,
                 contentsCatalogMatch,
-                repeated
+                repeated,
+                inferredFromContents
+        );
+    }
+
+    HeadingCandidate asInferredFromContents() {
+        return new HeadingCandidate(
+                sourceLine, scheme, headingText, numbering, wordCount,
+                visibleLength, uppercaseRatio, endsWithPunctuation,
+                tocLike, contentsCatalogMatch, repeatedOnSourcePage, true
         );
     }
 

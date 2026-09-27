@@ -35,5 +35,20 @@ class ContentsRegionDetectorTest {
         );
 
         assertEquals(Set.of(1, 2, 3, 4), detector.analyze(lines).tocLineOrders());
+        assertEquals(Set.of(8), detector.analyze(lines).headingPages().get("эксплуатация"));
+    }
+
+    @Test
+    void recoversContentsTitleWhenDotLeadersAreCorrupted() {
+        List<SourceLine> lines = List.of(
+                new SourceLine(1, 0, 0, 0, "Содержание"),
+                new SourceLine(1, 0, 1, 1, "Работа с прибором ��������  6"),
+                new SourceLine(1, 0, 2, 2, "Сигналы тревоги ��������  11"),
+                new SourceLine(1, 0, 3, 3, "Совместимые шприцы ��������  12"),
+                new SourceLine(1, 0, 4, 4, "Технические характеристики ��������  13")
+        );
+
+        assertEquals(Set.of(12), detector.analyze(lines).headingPages()
+                .get("совместимые шприцы"));
     }
 }

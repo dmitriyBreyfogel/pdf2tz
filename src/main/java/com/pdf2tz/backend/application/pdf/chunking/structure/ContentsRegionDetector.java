@@ -3,6 +3,7 @@ package com.pdf2tz.backend.application.pdf.chunking.structure;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -24,7 +25,9 @@ final class ContentsRegionDetector {
     private static final Pattern CONTENTS_TITLE = Pattern.compile(
             "(?iu)^(?:содержание|оглавление|contents|table of contents|inhalt)$"
     );
-    private static final Pattern TRAILING_PAGE_NUMBER = Pattern.compile("\\s+\\d{1,4}\\s*$");
+    private static final Pattern TRAILING_PAGE_NUMBER = Pattern.compile(
+            "[\\s\\p{Z}]+(\\d{1,4})[\\s\\p{Z}]*$"
+    );
     private static final Pattern LEADING_NUMBERING = Pattern.compile(
             "^\\s*(?:(?:\\d+(?:\\.\\d+)*)|(?:[IVXLCDM]+)|(?:[A-ZА-ЯЁ]))[.)]?\\s+",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
@@ -34,6 +37,7 @@ final class ContentsRegionDetector {
     ContentsProfile analyze(List<SourceLine> lines) {
         Set<Integer> tocLineOrders = new HashSet<>();
         Map<String, Set<Integer>> headingPages = new LinkedHashMap<>();
+        Map<Integer, Set<String>> titlesByPage = new LinkedHashMap<>();
         Map<Integer, List<SourceLine>> linesByPage = new LinkedHashMap<>();
 
         for (SourceLine line : lines) {
@@ -59,7 +63,7 @@ final class ContentsRegionDetector {
                     .filter(this::looksLikeContentsEntry)
                     .forEach(line -> {
                         tocLineOrders.add(line.order());
-                        extractHeadingTitles(line.text(), headingPages);
+                        extractHeadingTitles(line.text(), headingPages, titlesByPage);
                     });
         }
 
@@ -69,6 +73,11 @@ final class ContentsRegionDetector {
                         .collect(java.util.stream.Collectors.toUnmodifiableMap(
                                 Map.Entry::getKey,
                                 entry -> Set.copyOf(entry.getValue())
+                        )),
+                titlesByPage.entrySet().stream()
+                        .collect(java.util.stream.Collectors.toUnmodifiableMap(
+                                Map.Entry::getKey,
+                                entry -> List.copyOf(entry.getValue())
                         ))
         );
     }
@@ -82,9 +91,11 @@ final class ContentsRegionDetector {
 
     private void extractHeadingTitles(
             String text,
-            Map<String, Set<Integer>> headingPages
+            Map<String, Set<Integer>> headingPages,
+            Map<Integer, Set<String>> titlesByPage
     ) {
         String remainder = text;
+        boolean extracted = false;
         while (!remainder.isBlank()) {
             var matcher = DOT_LEADER.matcher(remainder);
             if (!matcher.find()) {
@@ -98,27 +109,68 @@ final class ContentsRegionDetector {
                 break;
             }
 
-            String normalizedTitle = normalizeTitle(title);
-            if (normalizedTitle.codePoints().filter(Character::isLetter).count() >= 3) {
-                headingPages.computeIfAbsent(normalizedTitle, ignored -> new HashSet<>())
-                        .add(Integer.parseInt(pageMatcher.group().trim()));
-            }
+            registerTitle(title, Integer.parseInt(pageMatcher.group().trim()),
+                    headingPages, titlesByPage);
+            extracted = true;
             remainder = afterLeader.substring(pageMatcher.end());
+        }
+
+        // В некоторых PDF точки оглавления превращаются в replacement characters.
+        // На уже подтверждённой странице оглавления достаточно номера в конце строки.
+        if (!extracted) {
+            var pageMatcher = TRAILING_PAGE_NUMBER.matcher(text);
+            if (pageMatcher.find()) {
+                registerTitle(
+                        text.substring(0, pageMatcher.start()),
+                        Integer.parseInt(pageMatcher.group(1)),
+                        headingPages,
+                        titlesByPage
+                );
+            }
+        }
+    }
+
+    private void registerTitle(
+            String title,
+            int pageNumber,
+            Map<String, Set<Integer>> headingPages,
+            Map<Integer, Set<String>> titlesByPage
+    ) {
+        String displayTitle = cleanTitle(title);
+        String normalizedTitle = normalizeTitle(displayTitle);
+        if (normalizedTitle.codePoints().filter(Character::isLetter).count() >= 3) {
+            headingPages.computeIfAbsent(normalizedTitle, ignored -> new HashSet<>())
+                    .add(pageNumber);
+            titlesByPage.computeIfAbsent(pageNumber, ignored -> new LinkedHashSet<>())
+                    .add(displayTitle);
+            int slash = normalizedTitle.lastIndexOf('/');
+            if (slash >= 0) {
+                String shortTitle = normalizedTitle.substring(slash + 1).trim();
+                if (shortTitle.length() >= 5) {
+                    headingPages.computeIfAbsent(shortTitle, ignored -> new HashSet<>())
+                            .add(pageNumber);
+                }
+            }
         }
     }
 
     private String normalizeTitle(String title) {
+        return cleanTitle(title).toLowerCase(java.util.Locale.ROOT)
+                .replaceAll(" */ *", "/");
+    }
+
+    private String cleanTitle(String title) {
         return LEADING_NUMBERING.matcher(title.replace('\u00A0', ' '))
                 .replaceFirst("")
-                .replaceAll("[.\\s]+$", "")
-                .replaceAll("\\s+", " ")
-                .trim()
-                .toLowerCase(java.util.Locale.ROOT);
+                .replaceAll("[.\\u2026\\uFFFD_\\s\\p{Z}]+$", "")
+                .replaceAll("[\\s\\p{Z}]+", " ")
+                .trim();
     }
 
     record ContentsProfile(
             Set<Integer> tocLineOrders,
-            Map<String, Set<Integer>> headingPages
+            Map<String, Set<Integer>> headingPages,
+            Map<Integer, List<String>> titlesByPage
     ) {
     }
 }

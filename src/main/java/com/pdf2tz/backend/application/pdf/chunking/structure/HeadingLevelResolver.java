@@ -19,7 +19,9 @@ final class HeadingLevelResolver {
     SectionHeading toHeading(HeadingCandidate candidate, ListContext context) {
         return new SectionHeading(
                 resolve(candidate, context),
-                candidate.sourceLine().text().trim(),
+                candidate.inferredFromContents()
+                        ? candidate.headingText()
+                        : candidate.sourceLine().text().trim(),
                 candidate.sourceLine().pageNumber()
         );
     }
