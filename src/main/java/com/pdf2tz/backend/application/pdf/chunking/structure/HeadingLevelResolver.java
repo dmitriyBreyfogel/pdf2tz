@@ -12,6 +12,7 @@ final class HeadingLevelResolver {
             case DECIMAL -> candidate.numbering().size();
             case ROMAN, UNNUMBERED_UPPERCASE -> 1;
             case LETTER -> context.letterAsNested() ? 2 : 1;
+            case TITLE_CASE -> context.titleCaseNested() ? 2 : 1;
         };
     }
 
@@ -23,6 +24,9 @@ final class HeadingLevelResolver {
         );
     }
 
-    record ListContext(boolean letterAsNested) {
+    record ListContext(
+            boolean letterAsNested,
+            boolean titleCaseNested
+    ) {
     }
 }

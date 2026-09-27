@@ -114,6 +114,9 @@ public class DocumentStructureAnalyzer {
                         if (!line.isBlank()) {
                             HeadingCandidate heading = headingsByOrder.get(sourceOrder++);
                             if (heading != null) {
+                                if (isDuplicateCurrentHeading(currentPath, heading)) {
+                                    continue;
+                                }
                                 flushText(textAccumulator, result);
                                 currentPath = advancePath(
                                         currentPath,
@@ -156,15 +159,39 @@ public class DocumentStructureAnalyzer {
                 .filter(other -> other.scheme() == HeadingScheme.LETTER)
                 .count() >= 2
                 && !currentPath.isRoot();
+        boolean titleCaseNested = candidate.scheme() == HeadingScheme.TITLE_CASE
+                && !currentPath.isRoot()
+                && !candidate.repeatedOnSourcePage();
 
         SectionHeading heading = headingLevelResolver.toHeading(
                 candidate,
-                new HeadingLevelResolver.ListContext(letterAsNested)
+                new HeadingLevelResolver.ListContext(letterAsNested, titleCaseNested)
         );
         List<SectionHeading> headings = new ArrayList<>(currentPath.headings());
         headings.removeIf(existing -> existing.level() >= heading.level());
         headings.add(heading);
         return new SectionPath(headings);
+    }
+
+    private boolean isDuplicateCurrentHeading(
+            SectionPath currentPath,
+            HeadingCandidate candidate
+    ) {
+        if (currentPath.isRoot()) {
+            return false;
+        }
+
+        String candidateTitle = normalizeHeading(candidate.headingText());
+        return currentPath.headings().stream()
+                .anyMatch(heading -> normalizeHeading(heading.text()).equals(candidateTitle));
+    }
+
+    private String normalizeHeading(String text) {
+        return text
+                .replaceFirst("^\\s*\\d+(?:\\.\\d+)*[.)]?\\s+", "")
+                .replaceAll("\\s+", " ")
+                .trim()
+                .toLowerCase(java.util.Locale.ROOT);
     }
 
     private void appendTables(

@@ -7,5 +7,6 @@ enum HeadingScheme {
     DECIMAL,
     ROMAN,
     LETTER,
-    UNNUMBERED_UPPERCASE
+    UNNUMBERED_UPPERCASE,
+    TITLE_CASE
 }
