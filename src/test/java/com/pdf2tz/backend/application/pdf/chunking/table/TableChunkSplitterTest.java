@@ -3,6 +3,7 @@ package com.pdf2tz.backend.application.pdf.chunking.table;
 import com.pdf2tz.backend.application.pdf.chunking.serialization.DocumentChunkSerializer;
 import com.pdf2tz.backend.application.pdf.chunking.serialization.TableTextSerializer;
 import com.pdf2tz.backend.application.pdf.chunking.text.TextSegmentSplitter;
+import com.pdf2tz.backend.application.pdf.model.document.PageRange;
 import com.pdf2tz.backend.application.pdf.model.structure.SectionHeading;
 import com.pdf2tz.backend.application.pdf.model.structure.SectionPath;
 import com.pdf2tz.backend.application.pdf.model.table.ParsedTable;
@@ -18,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TableChunkSplitterTest {
@@ -28,8 +30,7 @@ class TableChunkSplitterTest {
     private final TableChunkSplitter splitter = new TableChunkSplitter(
             tableSerializer,
             new TableHeaderDetector(),
-            new TextSegmentSplitter(new IcuTextBoundaryAdapter(), tokenizer),
-            tokenizer
+            new TextSegmentSplitter(new IcuTextBoundaryAdapter())
     );
 
     @Test
@@ -57,17 +58,17 @@ class TableChunkSplitterTest {
         ParsedTable table = table(rows);
         SectionPath path = new SectionPath(List.of(new SectionHeading(1, "1 Operation", 1)));
 
-        List<String> parts = splitter.split(
+        List<TableChunkPart> parts = splitter.split(
                 table,
                 body -> tokenizer.countTokens(documentSerializer.serialize(path, List.of(body))) <= 128
         );
 
         assertTrue(parts.size() > 1);
-        assertTrue(parts.stream().allMatch(body ->
-                tokenizer.countTokens(documentSerializer.serialize(path, List.of(body))) <= 128
+        assertTrue(parts.stream().allMatch(part ->
+                tokenizer.countTokens(documentSerializer.serialize(path, List.of(part.content()))) <= 128
         ));
-        assertTrue(parts.get(1).contains("[REPEATED HEADER]"));
-        assertTrue(parts.stream().anyMatch(part -> part.contains("Параметр 40")));
+        assertTrue(parts.get(1).content().contains("[REPEATED HEADER]"));
+        assertTrue(parts.stream().anyMatch(part -> part.content().contains("Параметр 40")));
     }
 
     @Test
@@ -79,20 +80,38 @@ class TableChunkSplitterTest {
         ));
         SectionPath path = new SectionPath(List.of(new SectionHeading(1, "1 Operation", 1)));
 
-        List<String> parts = splitter.split(
+        List<TableChunkPart> parts = splitter.split(
                 table,
                 body -> tokenizer.countTokens(documentSerializer.serialize(path, List.of(body))) <= 128
         );
 
         assertTrue(parts.size() > 1);
-        assertTrue(parts.stream().allMatch(body ->
-                tokenizer.countTokens(documentSerializer.serialize(path, List.of(body))) <= 128
+        assertTrue(parts.stream().allMatch(part ->
+                tokenizer.countTokens(documentSerializer.serialize(path, List.of(part.content()))) <= 128
         ));
-        assertTrue(parts.stream().anyMatch(part -> part.contains("[COLUMN 2]")));
+        assertTrue(parts.get(0).content().contains("| Параметр | Описание |"));
+        assertTrue(parts.stream().anyMatch(part -> part.content().contains("[COLUMN 2]")));
     }
 
     @Test
     void preservesEmptyColumnMarkerInOversizedRowFallback() {
+        ParsedTable table = table(List.of(
+                row("Параметр", "Описание"),
+                row("Код ".repeat(150), ""),
+                row("Код 2", "Обычное значение")
+        ));
+        SectionPath path = new SectionPath(List.of(new SectionHeading(1, "1 Operation", 1)));
+
+        List<TableChunkPart> parts = splitter.split(
+                table,
+                body -> tokenizer.countTokens(documentSerializer.serialize(path, List.of(body))) <= 128
+        );
+
+        assertTrue(parts.stream().anyMatch(part -> part.content().contains("[COLUMN 2]")));
+    }
+
+    @Test
+    void rejectsBudgetTooSmallForTablePartInsteadOfReturningUnboundedContent() {
         ParsedTable table = table(List.of(
                 row("Параметр", "Описание"),
                 row("Код", ""),
@@ -100,12 +119,57 @@ class TableChunkSplitterTest {
         ));
         SectionPath path = new SectionPath(List.of(new SectionHeading(1, "1 Operation", 1)));
 
-        List<String> parts = splitter.split(
-                table,
-                body -> tokenizer.countTokens(documentSerializer.serialize(path, List.of(body))) <= 30
-        );
+        assertThrows(IllegalArgumentException.class, () -> splitter.split(table,
+                body -> tokenizer.countTokens(documentSerializer.serialize(path, List.of(body))) <= 30));
+    }
 
-        assertTrue(parts.stream().anyMatch(part -> part.contains("[COLUMN 2]")));
+    @Test
+    void tracksPhysicalPagesOfSplitMultiPageTable() {
+        List<TableRow> firstRows = new ArrayList<>();
+        firstRows.add(row("Параметр", "Описание"));
+        List<TableRow> secondRows = new ArrayList<>();
+        secondRows.add(row("Параметр", "Описание"));
+        for (int index = 1; index <= 15; index++) {
+            firstRows.add(row("Параметр " + index,
+                    "Описание операции на первой странице " + index));
+            secondRows.add(row("Параметр " + (index + 15),
+                    "Описание операции на второй странице " + index));
+        }
+        ParsedTable table = new ParsedTable(List.of(
+                new TableFragment(new TableArea(4, 10, 10, 500, 500), firstRows),
+                new TableFragment(new TableArea(5, 10, 10, 500, 500), secondRows)
+        ));
+        SectionPath path = new SectionPath(List.of(new SectionHeading(1, "Техническое обслуживание", 4)));
+
+        List<TableChunkPart> parts = splitter.split(table,
+                body -> tokenizer.countTokens(documentSerializer.serialize(path, List.of(body))) <= 128);
+
+        assertTrue(parts.size() > 2);
+        assertTrue(parts.stream().anyMatch(part -> part.sourcePages().equals(PageRange.single(4))));
+        assertTrue(parts.stream().anyMatch(part -> part.sourcePages().equals(PageRange.single(5))));
+        assertTrue(parts.stream().allMatch(part ->
+                tokenizer.countTokens(documentSerializer.serialize(path, List.of(part.content()))) <= 128));
+        assertTrue(parts.stream().anyMatch(part -> part.content().contains("Параметр 30")));
+    }
+
+    @Test
+    void keepsHeaderEvenWhenItCannotFitAsRepeatedContext() {
+        ParsedTable table = table(List.of(
+                row("Параметр ".repeat(100), "Описание ".repeat(100)),
+                row("1", "10"),
+                row("2", "20")
+        ));
+        SectionPath path = new SectionPath(List.of(new SectionHeading(1, "Техническое обслуживание", 1)));
+        assertEquals(1, new TableHeaderDetector().detect(table.rows()));
+
+        List<TableChunkPart> parts = splitter.split(table,
+                body -> tokenizer.countTokens(documentSerializer.serialize(path, List.of(body))) <= 128);
+
+        assertTrue(parts.stream().allMatch(part ->
+                tokenizer.countTokens(documentSerializer.serialize(path, List.of(part.content()))) <= 128));
+        assertTrue(parts.stream().anyMatch(part -> part.content().contains("Параметр")));
+        assertTrue(parts.stream().anyMatch(part -> part.content().contains("Описание")));
+        assertTrue(parts.stream().anyMatch(part -> part.content().contains("| 2 | 20 |")));
     }
 
     private ParsedTable table(List<TableRow> rows) {

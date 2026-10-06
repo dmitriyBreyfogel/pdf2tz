@@ -191,7 +191,9 @@ public class TextCleaner {
      *
      * <p>Строки, совпавшие с {@link DocumentNoiseProfile#lineNoise()},
      * удаляются целиком. В оставшихся строках удаляются inline-фрагменты
-     * из {@link DocumentNoiseProfile#inlineNoise()}.</p>
+     * из {@link DocumentNoiseProfile#inlineNoise()}. Явные пустые строки
+     * сохраняются как границы абзацев; удалённая строка шума такой границы
+     * не создаёт.</p>
      *
      * @param page сырая страница PDF-документа
      * @param noiseProfile профиль служебного шума конкретного документа
@@ -313,15 +315,27 @@ public class TextCleaner {
             Set<String> lineNoise,
             List<String> inlineNoise
     ) {
-        String cleanedText = safeText(page.text())
-                .lines()
-                .map(line -> cleanTextFragment(line, lineNoise, inlineNoise))
-                .filter(line -> !line.isBlank())
-                .collect(Collectors.joining(LINE_SEPARATOR));
+        StringBuilder cleanedText = new StringBuilder();
+        boolean paragraphBreak = false;
+        for (String line : safeText(page.text()).lines().toList()) {
+            if (line.isBlank()) {
+                paragraphBreak = true;
+                continue;
+            }
+            String cleanedLine = cleanTextFragment(line, lineNoise, inlineNoise);
+            if (cleanedLine.isBlank()) {
+                continue;
+            }
+            if (!cleanedText.isEmpty()) {
+                cleanedText.append(paragraphBreak ? LINE_SEPARATOR + LINE_SEPARATOR : LINE_SEPARATOR);
+            }
+            cleanedText.append(cleanedLine);
+            paragraphBreak = false;
+        }
 
         return new CleanedTextPage(
                 page.pageNumber(),
-                cleanedText
+                cleanedText.toString()
         );
     }
 

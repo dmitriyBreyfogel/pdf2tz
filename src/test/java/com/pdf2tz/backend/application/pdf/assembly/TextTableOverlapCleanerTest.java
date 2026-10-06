@@ -18,6 +18,24 @@ class TextTableOverlapCleanerTest {
     private final TextTableOverlapCleaner cleaner = new TextTableOverlapCleaner();
 
     @Test
+    void keepsExplicitParagraphBreaksBesideAcceptedTableWithoutAddingOthers() {
+        ParsedTable table = table(fragment(
+                area(1, 100, 40),
+                row("Параметр", "Значение"),
+                row("Скорость", "10 мл/ч")
+        ));
+
+        assertEquals("Первый абзац\n\nВторой абзац",
+                cleaner.removeOverlaps(new CleanedTextPage(1,
+                        "Первый абзац\n\nПараметр Значение\nСкорость 10 мл/ч\nВторой абзац"),
+                        List.of(table)));
+        assertEquals("Первая строка\nВторая строка",
+                cleaner.removeOverlaps(new CleanedTextPage(1,
+                        "Первая строка\nПараметр Значение\nВторая строка"),
+                        List.of(table)));
+    }
+
+    @Test
     void removesTableRowsFromTextOnSamePage() {
         CleanedTextPage page = new CleanedTextPage(1, """
                 Перед таблицей
@@ -165,6 +183,43 @@ class TextTableOverlapCleanerTest {
         String result = cleaner.removeOverlaps(page, List.of(table));
 
         assertEquals("Описание режима вентиляции встречается в обычном абзаце и не должно удаляться.", result);
+    }
+
+    @Test
+    void removesOnlyCompleteRunOfThreeTableCellsOnSamePage() {
+        ParsedTable table = table(fragment(
+                area(2, 100, 40),
+                row("Редуктор давления", "Через 6 лет", "Общий осмотр", "Специалисты")
+        ));
+        CleanedTextPage tablePage = new CleanedTextPage(2, """
+                Текст перед таблицей
+                Через 6 лет Общий осмотр Специалисты
+                Через 6 лет Общий осмотр может понадобиться специалистам.
+                Через 6 лет Общий осмотр
+                Текст после таблицы
+                """);
+        CleanedTextPage otherPage = new CleanedTextPage(3,
+                "Через 6 лет Общий осмотр Специалисты");
+
+        assertEquals("""
+                Текст перед таблицей
+                Через 6 лет Общий осмотр может понадобиться специалистам.
+                Через 6 лет Общий осмотр
+                Текст после таблицы""",
+                cleaner.removeOverlaps(tablePage, List.of(table)));
+        assertEquals("Через 6 лет Общий осмотр Специалисты",
+                cleaner.removeOverlaps(otherPage, List.of(table)));
+    }
+
+    @Test
+    void keepsTextMissingOneOfTwoIdenticalTableCells() {
+        ParsedTable table = table(fragment(area(1, 100, 40),
+                row("Операция", "Каждые 6 лет", "Каждые 6 лет", "Специалисты")));
+        CleanedTextPage page = new CleanedTextPage(1,
+                "Операция Каждые 6 лет Специалисты");
+
+        assertEquals("Операция Каждые 6 лет Специалисты",
+                cleaner.removeOverlaps(page, List.of(table)));
     }
 
     private ParsedTable table(TableFragment... fragments) {

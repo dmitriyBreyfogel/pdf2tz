@@ -3,6 +3,7 @@ package com.pdf2tz.backend.application.pdf.chunking;
 import com.pdf2tz.backend.application.pdf.chunking.serialization.DocumentChunkSerializer;
 import com.pdf2tz.backend.application.pdf.chunking.serialization.TableTextSerializer;
 import com.pdf2tz.backend.application.pdf.chunking.table.TableChunkSplitter;
+import com.pdf2tz.backend.application.pdf.chunking.table.TableChunkPart;
 import com.pdf2tz.backend.application.pdf.chunking.text.TextSegmentSplitter;
 import com.pdf2tz.backend.application.pdf.model.chunk.ChunkedDocument;
 import com.pdf2tz.backend.application.pdf.model.chunk.DocumentChunk;
@@ -176,18 +177,18 @@ public class StructuredDocumentChunker {
 
         ChunkAccumulator emptyAccumulator = newAccumulator();
         ChunkAccumulator fitAccumulator = emptyAccumulator;
-        List<String> tableParts = tableChunkSplitter.split(
+        List<TableChunkPart> tableParts = tableChunkSplitter.split(
                 tableBlock.table(),
                 part -> fitAccumulator.canFit(tableBlock.sectionPath(), part)
         );
-        for (String tablePart : tableParts) {
-            if (!emptyAccumulator.canFit(tableBlock.sectionPath(), tablePart)) {
+        for (TableChunkPart tablePart : tableParts) {
+            if (!emptyAccumulator.canFit(tableBlock.sectionPath(), tablePart.content())) {
                 throw new IllegalArgumentException("Table part cannot fit into chunk budget");
             }
             emptyAccumulator.add(
                     tableBlock.sectionPath(),
-                    tableBlock.pageRange(),
-                    tablePart
+                    tablePart.sourcePages(),
+                    tablePart.content()
             );
             chunks.add(emptyAccumulator.finish(chunks.size() + 1));
             emptyAccumulator = newAccumulator();

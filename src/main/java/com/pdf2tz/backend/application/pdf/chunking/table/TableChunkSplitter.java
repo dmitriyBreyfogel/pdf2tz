@@ -2,10 +2,11 @@ package com.pdf2tz.backend.application.pdf.chunking.table;
 
 import com.pdf2tz.backend.application.pdf.chunking.serialization.TableTextSerializer;
 import com.pdf2tz.backend.application.pdf.chunking.text.TextSegmentSplitter;
+import com.pdf2tz.backend.application.pdf.model.document.PageRange;
 import com.pdf2tz.backend.application.pdf.model.table.ParsedTable;
+import com.pdf2tz.backend.application.pdf.model.table.ParsedTable.SourcedRow;
 import com.pdf2tz.backend.application.pdf.model.table.TableCell;
 import com.pdf2tz.backend.application.pdf.model.table.TableRow;
-import com.pdf2tz.backend.application.ports.LlmTokenizerPort;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -14,7 +15,8 @@ import java.util.Objects;
 import java.util.function.Predicate;
 
 /**
- * Делит oversized table только по строкам и сохраняет column provenance.
+ * Делит большую таблицу по строкам, а слишком длинную строку по ячейкам.
+ * Для каждой части сохраняет страницы исходных строк и номера колонок.
  */
 @Component
 public class TableChunkSplitter {
@@ -22,13 +24,11 @@ public class TableChunkSplitter {
     private final TableTextSerializer serializer;
     private final TableHeaderDetector headerDetector;
     private final TextSegmentSplitter textSegmentSplitter;
-    private final LlmTokenizerPort tokenizer;
 
     public TableChunkSplitter(
             TableTextSerializer serializer,
             TableHeaderDetector headerDetector,
-            TextSegmentSplitter textSegmentSplitter,
-            LlmTokenizerPort tokenizer
+            TextSegmentSplitter textSegmentSplitter
     ) {
         this.serializer = Objects.requireNonNull(serializer, "Table serializer must not be null");
         this.headerDetector = Objects.requireNonNull(headerDetector, "Table header detector must not be null");
@@ -36,7 +36,6 @@ public class TableChunkSplitter {
                 textSegmentSplitter,
                 "Text segment splitter must not be null"
         );
-        this.tokenizer = Objects.requireNonNull(tokenizer, "Tokenizer must not be null");
     }
 
     /**
@@ -44,21 +43,29 @@ public class TableChunkSplitter {
      *
      * @param table таблица
      * @param fits проверка полного chunk content для body part
-     * @return непустые части в порядке строк
+     * @return непустые части с диапазонами исходных страниц в порядке строк
      */
-    public List<String> split(ParsedTable table, Predicate<String> fits) {
+    public List<TableChunkPart> split(ParsedTable table, Predicate<String> fits) {
         Objects.requireNonNull(table, "Parsed table must not be null");
         Objects.requireNonNull(fits, "Fits predicate must not be null");
 
         String whole = serializer.serialize(table);
         if (fits.test(whole)) {
-            return List.of(whole);
+            return List.of(new TableChunkPart(whole,
+                    sourcePages(table.rowsWithSourcePages())));
         }
 
-        List<TableRow> rows = table.rows();
-        int headerRowCount = headerDetector.detect(rows);
-        List<TableRow> header = rows.subList(0, headerRowCount);
-        List<TableRow> dataRows = rows.subList(headerRowCount, rows.size());
+        List<SourcedRow> rows = table.rowsWithSourcePages();
+        int headerRowCount = headerDetector.detect(tableRows(rows));
+        List<SourcedRow> header = rows.subList(0, headerRowCount);
+        List<SourcedRow> dataRows = rows.subList(headerRowCount, rows.size());
+        if (!header.isEmpty()
+                && !fits.test(serializer.serializePart(tableRows(header), 1, 1, List.of()))) {
+            // Слишком длинная шапка остаётся обычной строкой: её также нужно
+            // сохранить через row/cell fallback, а не потерять при делении.
+            header = List.of();
+            dataRows = rows;
+        }
 
         int assumedPartCount = 1;
         List<TablePartDraft> drafts = List.of();
@@ -74,27 +81,27 @@ public class TableChunkSplitter {
     }
 
     private List<TablePartDraft> buildDrafts(
-            List<TableRow> header,
-            List<TableRow> dataRows,
+            List<SourcedRow> header,
+            List<SourcedRow> dataRows,
             int assumedPartCount,
             Predicate<String> fits
     ) {
         List<TablePartDraft> drafts = new ArrayList<>();
-        List<TableRow> currentRows = new ArrayList<>();
+        List<SourcedRow> currentRows = new ArrayList<>();
 
         for (int index = 0; index < dataRows.size(); index++) {
-            TableRow row = dataRows.get(index);
-            List<TableRow> candidateRows = new ArrayList<>(currentRows);
+            SourcedRow row = dataRows.get(index);
+            List<SourcedRow> candidateRows = new ArrayList<>(currentRows);
             candidateRows.add(row);
             int partNumber = drafts.size() + 1;
             List<TableRow> rowsForSerialization = partNumber == 1
-                    ? concat(header, candidateRows)
-                    : candidateRows;
+                    ? concat(tableRows(header), tableRows(candidateRows))
+                    : tableRows(candidateRows);
             String candidate = serializer.serializePart(
                     rowsForSerialization,
                     partNumber,
                     Math.max(assumedPartCount, partNumber),
-                    header
+                    tableRows(header)
             );
 
             if (fits.test(candidate)) {
@@ -105,6 +112,14 @@ public class TableChunkSplitter {
             if (!currentRows.isEmpty()) {
                 drafts.add(TablePartDraft.rows(currentRows));
                 currentRows = new ArrayList<>();
+                index--;
+                continue;
+            }
+
+            if (drafts.isEmpty() && !header.isEmpty()) {
+                // Если шапка и первая строка не помещаются вместе, шапка получает
+                // собственную часть, а строка повторно проверяется без неё.
+                drafts.add(TablePartDraft.headerOnly(sourcePages(header)));
                 index--;
                 continue;
             }
@@ -123,26 +138,26 @@ public class TableChunkSplitter {
         }
 
         if (drafts.isEmpty() && !header.isEmpty()) {
-            String headerOnly = serializer.serializePart(header, 1, 1, List.of());
+            String headerOnly = serializer.serializePart(tableRows(header), 1, 1, List.of());
             if (!fits.test(headerOnly)) {
                 throw new IllegalArgumentException("Table header cannot fit into chunk budget");
             }
-            drafts.add(TablePartDraft.rows(header));
+            drafts.add(TablePartDraft.headerOnly(sourcePages(header)));
         }
         return drafts;
     }
 
     private List<TablePartDraft> oversizedRowDrafts(
-            TableRow row,
+            SourcedRow row,
             int sourceRowNumber,
             int partNumber,
             int assumedPartCount,
             Predicate<String> fits
     ) {
         List<TablePartDraft> result = new ArrayList<>();
-        for (int cellIndex = 0; cellIndex < row.cells().size(); cellIndex++) {
+        for (int cellIndex = 0; cellIndex < row.row().cells().size(); cellIndex++) {
             int columnNumber = cellIndex + 1;
-            String cellText = row.cells().get(cellIndex).text();
+            String cellText = row.row().cells().get(cellIndex).text();
             List<String> cellParts = splitCell(
                     cellText,
                     candidate -> fits.test(rawTablePart(
@@ -155,7 +170,8 @@ public class TableChunkSplitter {
             );
             for (String cellPart : cellParts) {
                 result.add(TablePartDraft.raw(
-                        rawRowPart(sourceRowNumber, columnNumber, cellPart)
+                        rawRowPart(sourceRowNumber, columnNumber, cellPart),
+                        row.pageNumber()
                 ));
             }
         }
@@ -182,12 +198,7 @@ public class TableChunkSplitter {
                     fits
             );
             if (split.acceptedPrefix().isBlank()) {
-                if (tokenizer.countTokens(remainder) <= 1) {
-                    throw new IllegalArgumentException("Table cell cannot fit into chunk budget");
-                }
-                List<String> tokenParts = tokenizer.splitByTokenLimit(remainder, 1);
-                result.addAll(tokenParts);
-                break;
+                throw new IllegalArgumentException("Table cell cannot fit into chunk budget");
             }
             result.add(split.acceptedPrefix());
             remainder = split.remainder();
@@ -195,30 +206,46 @@ public class TableChunkSplitter {
         return result;
     }
 
-    private List<String> render(
+    private List<TableChunkPart> render(
             List<TablePartDraft> drafts,
-            List<TableRow> header,
+            List<SourcedRow> header,
             int partCount
     ) {
-        List<String> result = new ArrayList<>();
+        List<TableChunkPart> result = new ArrayList<>();
         for (int index = 0; index < drafts.size(); index++) {
             TablePartDraft draft = drafts.get(index);
             if (draft.rawContent() != null) {
-                result.add("[TABLE PART " + (index + 1) + '/' + partCount + "]\n"
+                result.add(new TableChunkPart("[TABLE PART " + (index + 1) + '/' + partCount + "]\n"
                         + draft.rawContent()
-                        + "\n[TABLE PART]");
+                        + "\n[TABLE PART]", draft.sourcePages()));
                 continue;
             }
-            List<TableRow> rows = draft.rows();
-            List<TableRow> rowsForSerialization = index == 0 ? concat(header, rows) : rows;
-            result.add(serializer.serializePart(
+            List<TableRow> rows = tableRows(draft.rows());
+            List<TableRow> rowsForSerialization = index == 0
+                    ? concat(tableRows(header), rows) : rows;
+            PageRange pages = index == 0 && !header.isEmpty()
+                    ? draft.sourcePages().merge(sourcePages(header))
+                    : draft.sourcePages();
+            result.add(new TableChunkPart(serializer.serializePart(
                     rowsForSerialization,
                     index + 1,
                     partCount,
-                    header
-            ));
+                    tableRows(header)
+            ), pages));
         }
         return List.copyOf(result);
+    }
+
+    private static List<TableRow> tableRows(List<SourcedRow> rows) {
+        return rows.stream().map(SourcedRow::row).toList();
+    }
+
+    private static PageRange sourcePages(List<SourcedRow> rows) {
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("Table part must contain source rows");
+        }
+        return new PageRange(rows.get(0).pageNumber(),
+                rows.get(rows.size() - 1).pageNumber());
     }
 
     private String columnPayload(int columnNumber, String text) {
@@ -252,15 +279,21 @@ public class TableChunkSplitter {
     }
 
     private record TablePartDraft(
-            List<TableRow> rows,
-            String rawContent
+            List<SourcedRow> rows,
+            String rawContent,
+            PageRange sourcePages
     ) {
-        private static TablePartDraft rows(List<TableRow> rows) {
-            return new TablePartDraft(List.copyOf(rows), null);
+        private static TablePartDraft rows(List<SourcedRow> rows) {
+            return new TablePartDraft(List.copyOf(rows), null,
+                    TableChunkSplitter.sourcePages(rows));
         }
 
-        private static TablePartDraft raw(String rawContent) {
-            return new TablePartDraft(List.of(), rawContent);
+        private static TablePartDraft headerOnly(PageRange pages) {
+            return new TablePartDraft(List.of(), null, pages);
+        }
+
+        private static TablePartDraft raw(String rawContent, int pageNumber) {
+            return new TablePartDraft(List.of(), rawContent, PageRange.single(pageNumber));
         }
     }
 }
