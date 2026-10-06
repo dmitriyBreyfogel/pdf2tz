@@ -44,6 +44,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PdfChunkingInstructionRegressionTest {
 
     @Test
+    void retrievesMaintenanceScheduleTableForBroadRegulationRequest() throws Exception {
+        var context = contextPipeline().prepare(content("1373967.pdf"),
+                "Составь регламент технического обслуживания: операции, периодичность и ответственный персонал");
+
+        assertTrue(context.selectedChunks().stream().anyMatch(chunk ->
+                chunk.content().contains("Редукторы давления")
+                        && chunk.content().contains("Через 6 лет")
+                        && chunk.pageRange().startPageNumber() <= 202
+                        && chunk.pageRange().endPageNumber() >= 202));
+        assertTrue(context.estimatedTokenCount() <= 8192);
+    }
+
+    @Test
     void retrievesMaintenanceIntervalFromLargeInstruction() throws Exception {
         var context = contextPipeline().prepare(content("1373967.pdf"),
                 "Редукторы давления: через сколько лет общий осмотр и замена?");

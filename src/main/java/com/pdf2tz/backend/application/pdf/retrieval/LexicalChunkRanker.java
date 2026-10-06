@@ -24,11 +24,18 @@ import java.util.regex.Pattern;
  * BM25 учитывает частоту слова, длину чанка и распространённость слова в документе.
  * Для разных грамматических форм применяется ограниченное сравнение триграмм;
  * оно не заменяет семантический поиск и не расширяет запрос синонимами.
+ * Переносы слов из PDF склеиваются только для сопоставления. Чанки из одних
+ * заголовков остаются доступными как резерв, но идут после чанков с содержимым.
  */
 @Component
 public class LexicalChunkRanker {
 
     private static final Pattern WORD = Pattern.compile("[\\p{L}\\p{N}\\p{M}]+");
+    /** Склеивает переносы при поисковой нормализации, не изменяя текст источника. */
+    private static final Pattern BROKEN_WORD = Pattern.compile(
+            "(\\p{L})-(?:[ \\t]+|[ \\t]*\\R[ \\t]*)(\\p{Ll})");
+    /** Формат префикса раздела задаёт DocumentChunkSerializer. */
+    private static final Pattern HEADING_LINE = Pattern.compile("#{1,6} .+");
     /** Распространённые параметры BM25: насыщение частоты и нормализация длины. */
     private static final double K1 = 1.2;
     private static final double LENGTH_NORMALIZATION = 0.75;
@@ -42,8 +49,9 @@ public class LexicalChunkRanker {
     private static final double FUZZY_WEIGHT = 0.5;
 
     /**
-     * Возвращает только чанки с текстовым совпадением в порядке убывания релевантности.
-     * Равные результаты упорядочиваются по исходному номеру чанка.
+     * Возвращает только чанки с текстовым совпадением: сначала содержательные,
+     * затем чистые заголовки; внутри групп — по убыванию BM25. Равные результаты
+     * упорядочиваются по исходному номеру чанка.
      */
     public List<RankedChunk> rank(String prompt, List<DocumentChunk> chunks) {
         Objects.requireNonNull(prompt, "Prompt must not be null");
@@ -94,7 +102,8 @@ public class LexicalChunkRanker {
                         scores[i] * (0.5 + 0.5 * coverage)));
             }
         }
-        ranked.sort(Comparator.comparingDouble(RankedChunk::score).reversed()
+        ranked.sort(Comparator.comparing((RankedChunk result) -> headingOnly(result.chunk()))
+                .thenComparing(Comparator.comparingDouble(RankedChunk::score).reversed())
                 .thenComparingInt(candidate -> candidate.chunk().chunkNumber()));
         return List.copyOf(ranked);
     }
@@ -115,6 +124,12 @@ public class LexicalChunkRanker {
         }
         return new IndexedChunk(chunk, Map.copyOf(frequencies),
                 Math.max(1, frequencies.values().stream().mapToInt(Integer::intValue).sum()));
+    }
+
+    /** Чистый заголовок уступает фрагменту с телом, но остаётся доступным как резерв. */
+    private boolean headingOnly(DocumentChunk chunk) {
+        return !chunk.sectionPath().isRoot()
+                && chunk.content().lines().allMatch(line -> HEADING_LINE.matcher(line).matches());
     }
 
     private TermMatch match(String queryTerm, IndexedChunk chunk,
@@ -167,6 +182,7 @@ public class LexicalChunkRanker {
         String normalized = Normalizer.normalize(text, Normalizer.Form.NFKC)
                 .toLowerCase(Locale.ROOT)
                 .replace('ё', 'е');
+        normalized = BROKEN_WORD.matcher(normalized).replaceAll("$1$2");
         Matcher matcher = WORD.matcher(normalized);
         List<String> result = new ArrayList<>();
         while (matcher.find()) {

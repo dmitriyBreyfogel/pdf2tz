@@ -2,6 +2,7 @@ package com.pdf2tz.backend.application.pdf.retrieval;
 
 import com.pdf2tz.backend.application.pdf.model.chunk.DocumentChunk;
 import com.pdf2tz.backend.application.pdf.model.document.PageRange;
+import com.pdf2tz.backend.application.pdf.model.structure.SectionHeading;
 import com.pdf2tz.backend.application.pdf.model.structure.SectionPath;
 import com.pdf2tz.backend.error.AppException;
 import org.junit.jupiter.api.Test;
@@ -59,6 +60,37 @@ class LexicalChunkRankerTest {
 
         assertEquals(List.of(1), ranked.stream()
                 .map(result -> result.chunk().chunkNumber()).toList());
+    }
+
+    @Test
+    void rejoinsPdfLineWrapsForMatchingWithoutChangingSourceContent() {
+        DocumentChunk wrapped = chunk(1, "Ответственный пер- сонал проводит осмотр");
+        DocumentChunk hyphenated = chunk(2, "Другой пер-сонал");
+        DocumentChunk lineWrapped = chunk(3, "Ответственный пер-\nсонал");
+        DocumentChunk separateParagraph = chunk(4, "Нельзя пер-\n\nсонал");
+
+        var ranked = ranker.rank("персонал", List.of(wrapped, hyphenated, lineWrapped, separateParagraph));
+
+        assertEquals(List.of(1, 3), ranked.stream().map(result -> result.chunk().chunkNumber())
+                .sorted().toList());
+        assertEquals("Ответственный пер- сонал проводит осмотр", ranked.stream()
+                .filter(result -> result.chunk().chunkNumber() == 1)
+                .findFirst().orElseThrow().chunk().content());
+    }
+
+    @Test
+    void ranksHeadingOnlyChunksAfterContentButKeepsThemAsFallback() {
+        SectionPath path = new SectionPath(List.of(new SectionHeading(1, "Техническое обслуживание", 2)));
+        DocumentChunk heading = new DocumentChunk(1, path, PageRange.single(2),
+                "# Техническое обслуживание", 6);
+        DocumentChunk content = new DocumentChunk(2, path, PageRange.single(3),
+                "# Техническое обслуживание\n\nОсмотр выполнять каждые 12 месяцев", 25);
+
+        var ranked = ranker.rank("техническое обслуживание", List.of(heading, content));
+
+        assertEquals(List.of(2, 1), ranked.stream().map(result -> result.chunk().chunkNumber()).toList());
+        assertEquals(1, ranker.rank("техническое обслуживание", List.of(heading))
+                .get(0).chunk().chunkNumber());
     }
 
     private DocumentChunk chunk(int number, String text) {
