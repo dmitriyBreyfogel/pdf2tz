@@ -5,13 +5,14 @@ import com.pdf2tz.backend.application.pdf.model.table.ParsedTable;
 import com.pdf2tz.backend.application.pdf.model.table.TableCell;
 import com.pdf2tz.backend.application.pdf.model.table.TableFragment;
 import com.pdf2tz.backend.application.pdf.model.table.TableRow;
+import com.pdf2tz.backend.application.pdf.table.TableTextMatch;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import static com.pdf2tz.backend.application.pdf.table.TableTextMatch.compact;
 
 /**
  * Удаляет из очищенного текстового слоя строки, которые уже представлены структурированными таблицами.
@@ -63,7 +64,12 @@ public class TextTableOverlapCleaner {
      */
     private static final int MIN_EXACT_CELL_LINE_LENGTH = 6;
 
-    private static final Pattern NON_ALPHANUMERIC_PATTERN = Pattern.compile("[^\\p{L}\\p{N}]+");
+    /**
+     * Для строки, в которой PDF потерял первую ячейку, нужны как минимум три
+     * полные соседние ячейки принятой таблицы. Две короткие ячейки слишком легко
+     * совпадают с обычной фразой, поэтому такой дубль остаётся в тексте.
+     */
+    private static final int MIN_COMPLETE_CELL_RUN = 3;
 
     /**
      * Удаляет из текста страницы строки, совпадающие со строками таблиц этой же страницы.
@@ -153,15 +159,6 @@ public class TextTableOverlapCleaner {
                 .toList();
     }
 
-    private static String compact(String text) {
-        String normalizedText = Objects.requireNonNull(text, "Text must not be null")
-                .replace('ё', 'е')
-                .toLowerCase(Locale.ROOT);
-
-        return NON_ALPHANUMERIC_PATTERN.matcher(normalizedText)
-                .replaceAll("");
-    }
-
     private record TableRowSignature(
             List<String> cellCompacts,
             String rowCompact,
@@ -171,9 +168,8 @@ public class TextTableOverlapCleaner {
         private static TableRowSignature from(TableRow row) {
             List<String> cellCompacts = row.cells().stream()
                     .map(TableCell::text)
-                    .map(TextTableOverlapCleaner::compact)
+                    .map(TableTextMatch::compact)
                     .filter(text -> !text.isBlank())
-                    .distinct()
                     .toList();
             String rowCompact = String.join("", cellCompacts);
             long strongCellCount = cellCompacts.stream()
@@ -203,12 +199,39 @@ public class TextTableOverlapCleaner {
                         && coverageRatio(lineCompact) >= MIN_SINGLE_CELL_ROW_COVERAGE_RATIO;
             }
 
-            return containsAllCells(lineCompact)
-                    && coverageRatio(lineCompact) >= MIN_ROW_COVERAGE_RATIO;
+            return (containsAllCellsInOrder(lineCompact)
+                    && coverageRatio(lineCompact) >= MIN_ROW_COVERAGE_RATIO)
+                    || matchesCompleteCellRun(lineCompact);
         }
 
-        private boolean containsAllCells(String lineCompact) {
-            return cellCompacts.stream().allMatch(lineCompact::contains);
+        private boolean matchesCompleteCellRun(String lineCompact) {
+            for (int start = 0; start <= cellCompacts.size() - MIN_COMPLETE_CELL_RUN; start++) {
+                StringBuilder run = new StringBuilder();
+                for (int end = start; end < cellCompacts.size(); end++) {
+                    String cell = cellCompacts.get(end);
+                    if (cell.length() < MIN_STRONG_CELL_LENGTH) {
+                        break;
+                    }
+                    run.append(cell);
+                    if (end - start + 1 >= MIN_COMPLETE_CELL_RUN
+                            && run.toString().equals(lineCompact)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        private boolean containsAllCellsInOrder(String lineCompact) {
+            int offset = 0;
+            for (String cell : cellCompacts) {
+                int found = lineCompact.indexOf(cell, offset);
+                if (found < 0) {
+                    return false;
+                }
+                offset = found + cell.length();
+            }
+            return true;
         }
 
         private double coverageRatio(String lineCompact) {

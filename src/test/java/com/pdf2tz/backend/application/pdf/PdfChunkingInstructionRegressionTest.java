@@ -74,6 +74,11 @@ class PdfChunkingInstructionRegressionTest {
                 chunk.sectionPath().headings().stream()
                         .anyMatch(heading -> heading.text().startsWith("1 Извлечь предохранитель"))
         ));
+        assertTrue(document.chunks().stream()
+                .filter(chunk -> chunk.pageRange().startPageNumber() >= 200)
+                .filter(chunk -> chunk.sectionPath().headings().stream()
+                        .anyMatch(heading -> heading.text().equals("Ремонт")))
+                .noneMatch(chunk -> chunk.content().contains("Через 6 лет")));
         assertTrue(document.chunks().stream().noneMatch(chunk ->
                 chunk.sectionPath().headings().stream()
                         .anyMatch(heading -> heading.text().contains("113Подтверждение"))
@@ -149,6 +154,25 @@ class PdfChunkingInstructionRegressionTest {
         assertTrue(document.chunks().stream().anyMatch(chunk ->
                 chunk.content().contains("[TABLE")
         ));
+        List<com.pdf2tz.backend.application.pdf.model.chunk.DocumentChunk> errorCodeParts =
+                document.chunks().stream()
+                        .filter(chunk -> chunk.pageRange().startPageNumber() == 145)
+                        .filter(chunk -> chunk.content().contains("[TABLE PART"))
+                        .toList();
+        assertFalse(errorCodeParts.isEmpty());
+        assertTrue(document.chunks().stream()
+                .filter(chunk -> chunk.pageRange().startPageNumber() == 145)
+                .anyMatch(chunk -> chunk.sectionPath().headings().stream()
+                        .anyMatch(heading -> heading.text().equals(
+                                "DESCRIBING CELL SAVER 5+ ERROR CODES"))));
+        assertTrue(errorCodeParts.stream().noneMatch(chunk ->
+                chunk.sectionPath().headings().stream()
+                        .anyMatch(heading -> heading.text().contains("Mucous Membrane")
+                                || heading.text().contains("Methylmethacrylate"))));
+        assertTrue(document.chunks().stream()
+                .filter(chunk -> chunk.pageRange().startPageNumber() >= 142)
+                .noneMatch(chunk -> chunk.sectionPath().headings().stream()
+                        .anyMatch(heading -> heading.text().equals("C. Methylmethacrylate"))));
     }
 
     @Test

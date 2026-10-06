@@ -14,14 +14,17 @@ import com.pdf2tz.backend.application.pdf.model.structure.StructuredHeadingBlock
 import com.pdf2tz.backend.application.pdf.model.structure.StructuredTableBlock;
 import com.pdf2tz.backend.application.pdf.model.structure.StructuredTextBlock;
 import com.pdf2tz.backend.application.pdf.model.table.ParsedTable;
+import com.pdf2tz.backend.application.pdf.table.TableTextMatch;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Восстанавливает консервативную иерархию разделов поверх {@link ParsedDocument}.
@@ -58,7 +61,7 @@ public class DocumentStructureAnalyzer {
         ContentsRegionDetector.ContentsProfile contentsProfile =
                 new ContentsRegionDetector().analyze(sourceLines);
         List<HeadingCandidate> acceptedHeadings = headingDetector.detect(
-                sourceLines, contentsProfile);
+                sourceLines, contentsProfile, tableCellLineOrders(document, sourceLines));
         Set<Integer> contentsPages = sourceLines.stream()
                 .filter(line -> contentsProfile.tocLineOrders().contains(line.order()))
                 .map(SourceLine::pageNumber)
@@ -103,6 +106,44 @@ public class DocumentStructureAnalyzer {
         }
 
         return List.copyOf(lines);
+    }
+
+    /**
+     * Отмечает строки, являющиеся началом более длинной ячейки принятой таблицы
+     * на той же физической странице. Такие обрывки текстового слоя могут выглядеть
+     * как самостоятельные заголовки, хотя в таблице за ними следует продолжение.
+     * Совпадение с ячейкой другой страницы и полное совпадение не используются:
+     * последнее уже обрабатывает удаление уверенных дублей при сборке ParsedDocument.
+     */
+    private Set<Integer> tableCellLineOrders(
+            ParsedDocument document,
+            List<SourceLine> lines
+    ) {
+        Map<Integer, List<String>> cellsByPage = new HashMap<>();
+        document.pages().stream()
+                .flatMap(page -> page.blocks().stream())
+                .filter(TableBlock.class::isInstance)
+                .map(TableBlock.class::cast)
+                .flatMap(block -> block.table().fragments().stream())
+                .forEach(fragment -> fragment.rows().stream()
+                        .flatMap(row -> row.cells().stream())
+                        .map(cell -> TableTextMatch.compact(cell.text()))
+                        .filter(cell -> !cell.isBlank())
+                        .forEach(cell -> cellsByPage
+                                .computeIfAbsent(fragment.pageNumber(), ignored -> new ArrayList<>())
+                                .add(cell)));
+
+        return lines.stream()
+                .filter(line -> {
+                    String text = TableTextMatch.compact(line.text());
+                    return !text.isBlank() && cellsByPage
+                            .getOrDefault(line.pageNumber(), List.of())
+                            .stream()
+                            .anyMatch(cell -> cell.length() > text.length()
+                                    && cell.startsWith(text));
+                })
+                .map(SourceLine::order)
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     private StructuredDocument assemble(

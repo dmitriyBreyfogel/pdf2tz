@@ -47,6 +47,35 @@ class HeadingDetectorTest {
     }
 
     @Test
+    void acceptsUppercaseSectionWithNumericProductName() {
+        List<HeadingCandidate> headings = detector.detect(lines(
+                "PROVIDING REFERENCE INFORMATION",
+                "Reference text.",
+                "DESCRIBING CELL SAVER 5+ ERROR CODES",
+                "The following table lists the error codes."
+        ));
+
+        assertEquals(List.of(
+                "PROVIDING REFERENCE INFORMATION",
+                "DESCRIBING CELL SAVER 5+ ERROR CODES"
+        ), headings.stream().map(candidate -> candidate.sourceLine().text()).toList());
+    }
+
+    @Test
+    void rejectsShortAlphabeticLegendAmongUppercaseCandidates() {
+        List<HeadingCandidate> headings = detector.detect(lines(
+                "PROVIDING REFERENCE INFORMATION",
+                "A C STATUS",
+                "DESCRIBING ERROR CODES"
+        ));
+
+        assertEquals(List.of(
+                "PROVIDING REFERENCE INFORMATION",
+                "DESCRIBING ERROR CODES"
+        ), headings.stream().map(candidate -> candidate.sourceLine().text()).toList());
+    }
+
+    @Test
     void ignoresContentsEntriesAndCaptions() {
         List<HeadingCandidate> headings = detector.detect(lines(
                 "СОДЕРЖАНИЕ",
@@ -180,6 +209,21 @@ class HeadingDetectorTest {
         );
         assertEquals(List.of("A. Назначение", "B. Обслуживание"),
                 detector.detect(sections).stream()
+                        .map(candidate -> candidate.sourceLine().text())
+                        .toList());
+    }
+
+    @Test
+    void requiresSequentialRomanSectionsInsteadOfIsolatedTableLabels() {
+        List<SourceLine> lines = List.of(
+                new SourceLine(10, 0, 2, 0, "C. Methylmethacrylate"),
+                new SourceLine(11, 0, 5, 1, "I. Mucous Membrane Procedures"),
+                new SourceLine(20, 0, 0, 2, "I. Device Overview"),
+                new SourceLine(21, 0, 0, 3, "II. Maintenance Instructions")
+        );
+
+        assertEquals(List.of("I. Device Overview", "II. Maintenance Instructions"),
+                detector.detect(lines).stream()
                         .map(candidate -> candidate.sourceLine().text())
                         .toList());
     }

@@ -64,6 +64,14 @@ final class HeadingDetector {
             List<SourceLine> lines,
             ContentsRegionDetector.ContentsProfile contentsProfile
     ) {
+        return detect(lines, contentsProfile, Set.of());
+    }
+
+    List<HeadingCandidate> detect(
+            List<SourceLine> lines,
+            ContentsRegionDetector.ContentsProfile contentsProfile,
+            Set<Integer> tableCellLineOrders
+    ) {
         List<HeadingCandidate> candidates = new ArrayList<>();
         Set<Integer> pageHeaderOrders = new RepeatedPageHeaderDetector().detect(lines);
         Set<Integer> pagesWithRepeatedHeader = new HashSet<>();
@@ -83,6 +91,11 @@ final class HeadingDetector {
                     contentsProfile.tocLineOrders().contains(line.order()),
                     contentsProfile.headingPages()
             );
+            if (candidate != null
+                    && tableCellLineOrders.contains(line.order())
+                    && !candidate.contentsCatalogMatch()) {
+                continue;
+            }
             if (pageHeaderOrders.contains(line.order())
                     && (candidate == null || !candidate.contentsCatalogMatch())
                     && !line.text().trim().matches("^\\d+(?:\\.\\d+)+[.)]?\\s+\\p{L}.*")) {
@@ -289,7 +302,8 @@ final class HeadingDetector {
             return acceptedDecimal(candidate, profile);
         }
         if (candidate.scheme() == HeadingScheme.ROMAN) {
-            return profile.romanCount() >= 2;
+            return candidate.contentsCatalogMatch()
+                    || profile.hasNearbyRomanSequence(candidate);
         }
         if (candidate.scheme() == HeadingScheme.LETTER) {
             return candidate.contentsCatalogMatch()
@@ -310,7 +324,7 @@ final class HeadingDetector {
             return false;
         }
         if (candidate.sourceLine().lineIndex() > 3
-                || containsShortToken(candidate.headingText())) {
+                || containsShortLetterToken(candidate.headingText())) {
             return false;
         }
         return candidate.isStrongStyle()
@@ -454,10 +468,12 @@ final class HeadingDetector {
                 && normalized.length() <= 120;
     }
 
-    private boolean containsShortToken(String text) {
+    /** Короткие буквенные обрывки чаще являются подписями; числа могут быть частью модели изделия. */
+    private boolean containsShortLetterToken(String text) {
         return NON_WORD_PATTERN.split(text.trim()).length > 1
                 && java.util.Arrays.stream(NON_WORD_PATTERN.split(text.trim()))
-                .anyMatch(token -> token.codePointCount(0, token.length()) <= 2);
+                .anyMatch(token -> token.codePointCount(0, token.length()) <= 2
+                        && token.codePoints().anyMatch(Character::isLetter));
     }
 
     private boolean isStandaloneSectionTitle(HeadingCandidate candidate) {
@@ -524,7 +540,7 @@ final class HeadingDetector {
             int decimalCount,
             int decimalLevelOneCount,
             Set<Integer> decimalDepths,
-            int romanCount,
+            List<HeadingCandidate> romanCandidates,
             List<HeadingCandidate> letterCandidates,
             int uppercaseCount,
             Map<String, Integer> normalizedTextCounts,
@@ -553,7 +569,9 @@ final class HeadingDetector {
                     counts.getOrDefault(HeadingScheme.DECIMAL, 0),
                     decimalLevelOneCount,
                     Set.copyOf(decimalDepths),
-                    counts.getOrDefault(HeadingScheme.ROMAN, 0),
+                    candidates.stream()
+                            .filter(candidate -> candidate.scheme() == HeadingScheme.ROMAN)
+                            .toList(),
                     candidates.stream()
                             .filter(candidate -> candidate.scheme() == HeadingScheme.LETTER)
                             .toList(),
@@ -617,6 +635,44 @@ final class HeadingDetector {
                                 && (marker == 'A' || marker == 'А'
                                 || otherMarker == 'A' || otherMarker == 'А');
                     });
+        }
+
+        /**
+         * Римский маркер принимается только при соседнем последовательном номере.
+         * Одиночные I. и C. часто оказываются буквенными обозначениями строк таблицы.
+         */
+        private boolean hasNearbyRomanSequence(HeadingCandidate candidate) {
+            int number = romanNumber(candidate);
+            return romanCandidates.stream()
+                    .filter(other -> other != candidate)
+                    .filter(other -> Math.abs(other.sourceLine().pageNumber()
+                            - candidate.sourceLine().pageNumber()) <= 2)
+                    .anyMatch(other -> Math.abs(romanNumber(other) - number) == 1);
+        }
+
+        private static int romanNumber(HeadingCandidate candidate) {
+            Matcher matcher = ROMAN_PATTERN.matcher(candidate.sourceLine().text().trim());
+            if (!matcher.matches()) {
+                throw new IllegalArgumentException("Roman candidate has no numeral");
+            }
+            String marker = matcher.group(1).toUpperCase(Locale.ROOT);
+            int result = 0;
+            int previous = 0;
+            for (int index = marker.length() - 1; index >= 0; index--) {
+                int current = switch (marker.charAt(index)) {
+                    case 'I' -> 1;
+                    case 'V' -> 5;
+                    case 'X' -> 10;
+                    case 'L' -> 50;
+                    case 'C' -> 100;
+                    case 'D' -> 500;
+                    case 'M' -> 1000;
+                    default -> throw new IllegalArgumentException("Invalid Roman numeral");
+                };
+                result += current < previous ? -current : current;
+                previous = current;
+            }
+            return result;
         }
 
         private static int letterMarker(HeadingCandidate candidate) {

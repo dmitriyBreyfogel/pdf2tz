@@ -3,10 +3,16 @@ package com.pdf2tz.backend.application.pdf.chunking.structure;
 import com.pdf2tz.backend.application.pdf.model.document.ParsedDocument;
 import com.pdf2tz.backend.application.pdf.model.document.ParsedPage;
 import com.pdf2tz.backend.application.pdf.model.document.TextBlock;
+import com.pdf2tz.backend.application.pdf.model.document.TableBlock;
 import com.pdf2tz.backend.application.pdf.model.structure.SectionPath;
 import com.pdf2tz.backend.application.pdf.model.structure.StructuredDocument;
 import com.pdf2tz.backend.application.pdf.model.structure.StructuredHeadingBlock;
 import com.pdf2tz.backend.application.pdf.model.structure.StructuredTextBlock;
+import com.pdf2tz.backend.application.pdf.model.table.ParsedTable;
+import com.pdf2tz.backend.application.pdf.model.table.TableArea;
+import com.pdf2tz.backend.application.pdf.model.table.TableCell;
+import com.pdf2tz.backend.application.pdf.model.table.TableFragment;
+import com.pdf2tz.backend.application.pdf.model.table.TableRow;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -185,6 +191,50 @@ class DocumentStructureAnalyzerTest {
         assertEquals(SectionPath.root(), introduction.sectionPath());
         assertEquals("Введение к новой инструкции без явного заголовка.",
                 introduction.text());
+    }
+
+    @Test
+    void doesNotPromoteAcceptedTableCellPrefixToSectionHeading() {
+        ParsedTable table = new ParsedTable(List.of(new TableFragment(
+                new TableArea(2, 100, 30, 400, 500),
+                List.of(new TableRow(List.of(
+                        new TableCell("I. Mucous Membrane Procedures Examples: Oral, Nasal"),
+                        new TableCell("Medical risks and benefits should be discussed")
+                )), new TableRow(List.of(
+                        new TableCell("DESCRIBING CELL SAVER 5+ ERROR CODES details"),
+                        new TableCell("Another table value")
+                )))
+        )));
+        ParsedDocument document = new ParsedDocument(List.of(
+                new ParsedPage(1, List.of(new TextBlock(
+                        "GENERAL INFORMATION ABOUT DEVICE\nReference text."))),
+                new ParsedPage(2, List.of(
+                        new TextBlock("""
+                                P/N 53063-30, Manual revision: B A-5
+                                Providing Reference Information
+                                I. Mucous Membrane Procedures
+                                Examples: Oral, Nasal
+                                """),
+                        new TableBlock(table)
+                )),
+                new ParsedPage(3, List.of(new TextBlock("""
+                        P/N 53063-30, Manual revision: B A-7
+                        Providing Reference Information
+                        DESCRIBING CELL SAVER 5+ ERROR CODES
+                        The following table lists these error codes.
+                        """)))
+        ));
+
+        List<String> headings = analyzer.analyze(document).blocks().stream()
+                .filter(StructuredHeadingBlock.class::isInstance)
+                .map(StructuredHeadingBlock.class::cast)
+                .map(this::lastHeadingText)
+                .toList();
+
+        assertEquals(List.of(
+                "GENERAL INFORMATION ABOUT DEVICE",
+                "DESCRIBING CELL SAVER 5+ ERROR CODES"
+        ), headings);
     }
 
     private String lastHeadingText(StructuredHeadingBlock block) {
