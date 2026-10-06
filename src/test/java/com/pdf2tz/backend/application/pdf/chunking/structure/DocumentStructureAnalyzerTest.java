@@ -25,6 +25,19 @@ class DocumentStructureAnalyzerTest {
     private final DocumentStructureAnalyzer analyzer = new DocumentStructureAnalyzer();
 
     @Test
+    void keepsParagraphBoundariesInsideTextBlock() {
+        ParsedDocument document = new ParsedDocument(List.of(
+                new ParsedPage(1, List.of(new TextBlock("Первый абзац\n\nВторой абзац\nПродолжение")))
+        ));
+
+        StructuredDocument structured = analyzer.analyze(document);
+
+        assertEquals(1, structured.blocks().size());
+        assertEquals("Первый абзац\n\nВторой абзац\nПродолжение",
+                assertInstanceOf(StructuredTextBlock.class, structured.blocks().get(0)).text());
+    }
+
+    @Test
     void buildsPathsWithoutDuplicatingAcceptedHeadingsInBody() {
         ParsedDocument document = new ParsedDocument(List.of(
                 new ParsedPage(1, List.of(new TextBlock("""

@@ -197,6 +197,8 @@ public class DocumentStructureAnalyzer {
                                 textAccumulator.add(line, page.pageNumber(), currentPath);
                                 pathsOnPage.add(currentPath);
                             }
+                        } else {
+                            textAccumulator.markParagraphBreak();
                         }
                         lineIndex++;
                     }
@@ -298,6 +300,13 @@ public class DocumentStructureAnalyzer {
         private final StringBuilder text = new StringBuilder();
         private SectionPath sectionPath;
         private PageRange pageRange;
+        private boolean paragraphBreak;
+
+        void markParagraphBreak() {
+            if (!text.isEmpty()) {
+                paragraphBreak = true;
+            }
+        }
 
         void add(String line, int pageNumber, SectionPath path) {
             if (text.isEmpty()) {
@@ -310,9 +319,10 @@ public class DocumentStructureAnalyzer {
             }
 
             if (!text.isEmpty()) {
-                text.append('\n');
+                text.append(paragraphBreak ? "\n\n" : "\n");
             }
             text.append(line.trim());
+            paragraphBreak = false;
         }
 
         java.util.Optional<StructuredTextBlock> flush() {
@@ -328,6 +338,7 @@ public class DocumentStructureAnalyzer {
             text.setLength(0);
             sectionPath = null;
             pageRange = null;
+            paragraphBreak = false;
             return java.util.Optional.of(result);
         }
     }

@@ -1,5 +1,6 @@
 package com.pdf2tz.backend.application.pdf.cleaning;
 
+import com.pdf2tz.backend.application.pdf.model.ExtractedTextPage;
 import com.pdf2tz.backend.application.pdf.model.cleaning.DocumentNoiseProfile;
 import org.junit.jupiter.api.Test;
 
@@ -10,6 +11,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class TextCleanerTest {
 
     private final TextCleaner textCleaner = new TextCleaner();
+
+    @Test
+    void preservesExplicitParagraphsWithoutTurningRemovedNoiseIntoBreaks() {
+        DocumentNoiseProfile profile = new DocumentNoiseProfile(Set.of("watermark"), Set.of());
+
+        assertEquals("Первый абзац\n\nВторой абзац\nПродолжение",
+                textCleaner.cleanPage(new ExtractedTextPage(1,
+                        "Первый абзац\n\nwatermark\nВторой абзац\nПродолжение"), profile).text());
+        assertEquals("Первая строка\nВторая строка",
+                textCleaner.cleanPage(new ExtractedTextPage(1,
+                        "Первая строка\nwatermark\nВторая строка"), profile).text());
+    }
 
     @Test
     void cleanTextFragmentRemovesWholeLineNoise() {

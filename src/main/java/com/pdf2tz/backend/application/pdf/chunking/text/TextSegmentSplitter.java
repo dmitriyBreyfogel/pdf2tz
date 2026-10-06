@@ -4,19 +4,24 @@ import com.pdf2tz.backend.application.ports.LlmTokenizerPort;
 import com.pdf2tz.backend.application.ports.TextBoundaryPort;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Выбирает максимальный lossless prefix текста под динамическим payload budget.
  *
- * <p>Порядок fallback-границ: предложения, словесные границы, token-level.
+ * <p>Порядок fallback-границ: абзацы, предложения, словесные границы, token-level.
  * Метод не знает о section path и serializer: caller передаёт predicate,
  * который проверяет полный prospective content.</p>
  */
 @Component
 public class TextSegmentSplitter {
+
+    private static final Pattern PARAGRAPH_BREAK = Pattern.compile("\\n{2,}");
 
     private final TextBoundaryPort textBoundaryPort;
     private final LlmTokenizerPort tokenizerPort;
@@ -50,6 +55,11 @@ public class TextSegmentSplitter {
             return new TextSplitResult(text, "");
         }
 
+        TextSplitResult paragraphResult = byBoundaries(text, paragraphEndOffsets(text), fits);
+        if (!paragraphResult.acceptedPrefix().isBlank()) {
+            return paragraphResult;
+        }
+
         TextSplitResult sentenceResult = byBoundaries(text, textBoundaryPort.sentenceEndOffsets(text), fits);
         if (!sentenceResult.acceptedPrefix().isBlank()) {
             return sentenceResult;
@@ -61,6 +71,15 @@ public class TextSegmentSplitter {
         }
 
         return byTokens(text, fits);
+    }
+
+    private List<Integer> paragraphEndOffsets(String text) {
+        Matcher matcher = PARAGRAPH_BREAK.matcher(text);
+        List<Integer> offsets = new ArrayList<>();
+        while (matcher.find()) {
+            offsets.add(matcher.end());
+        }
+        return offsets;
     }
 
     private TextSplitResult byBoundaries(
