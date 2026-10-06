@@ -156,10 +156,16 @@ class PdfChunkingInstructionRegressionTest {
         ));
         List<com.pdf2tz.backend.application.pdf.model.chunk.DocumentChunk> errorCodeParts =
                 document.chunks().stream()
-                        .filter(chunk -> chunk.pageRange().startPageNumber() == 145)
                         .filter(chunk -> chunk.content().contains("[TABLE PART"))
+                        .filter(chunk -> chunk.content().contains("Error message on the screen"))
                         .toList();
-        assertFalse(errorCodeParts.isEmpty());
+        assertTrue(errorCodeParts.size() >= 2);
+        assertTrue(errorCodeParts.stream().allMatch(chunk ->
+                chunk.pageRange().startPageNumber() >= 145
+                        && chunk.pageRange().endPageNumber() <= 148));
+        assertTrue(errorCodeParts.stream().anyMatch(chunk ->
+                chunk.pageRange().startPageNumber() > 145
+                        || chunk.pageRange().endPageNumber() < 148));
         assertTrue(document.chunks().stream()
                 .filter(chunk -> chunk.pageRange().startPageNumber() == 145)
                 .anyMatch(chunk -> chunk.sectionPath().headings().stream()

@@ -22,6 +22,8 @@ class TableModelTest {
         var table = new ParsedTable(List.of(first, second));
 
         assertEquals(List.of(header, data, data, data), table.rows());
+        assertEquals(List.of(1, 1, 2, 2), table.rowsWithSourcePages().stream()
+                .map(ParsedTable.SourcedRow::pageNumber).toList());
         assertEquals(List.of(header, data, data), table.fragments().get(1).rows());
     }
 

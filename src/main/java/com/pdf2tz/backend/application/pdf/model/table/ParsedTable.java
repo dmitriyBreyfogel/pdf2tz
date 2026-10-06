@@ -1,8 +1,8 @@
 package com.pdf2tz.backend.application.pdf.model.table;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.IntStream;
 
 /**
  * Целостная таблица документа.
@@ -37,18 +37,48 @@ public record ParsedTable(
      * @return строки целостной таблицы
      */
     public List<TableRow> rows() {
+        return rowsWithSourcePages().stream()
+                .map(SourcedRow::row)
+                .toList();
+    }
+
+    /**
+     * Возвращает те же логические строки вместе со страницей их исходного фрагмента.
+     * Повторная шапка продолжения пропускается по тому же правилу, что и в {@link #rows()}.
+     * Список вычисляется из фрагментов и не хранит вторую копию таблицы.
+     *
+     * @return строки с номерами физических страниц
+     */
+    public List<SourcedRow> rowsWithSourcePages() {
         TableRow header = fragments.get(0).rows().get(0);
         boolean hasTextLabels = header.cells().stream()
                 .filter(cell -> cell.text().codePoints().filter(Character::isLetter).count() >= 3)
                 .count() >= 2;
-        return IntStream.range(0, fragments.size())
-                .mapToObj(index -> {
-                    List<TableRow> rows = fragments.get(index).rows();
-                    return index > 0 && hasTextLabels && header.equals(rows.get(0))
-                            ? rows.subList(1, rows.size()) : rows;
-                })
-                .flatMap(List::stream)
-                .toList();
+        List<SourcedRow> result = new ArrayList<>();
+        for (int index = 0; index < fragments.size(); index++) {
+            TableFragment fragment = fragments.get(index);
+            List<TableRow> rows = fragment.rows();
+            int firstRow = index > 0 && hasTextLabels && header.equals(rows.get(0)) ? 1 : 0;
+            for (int rowIndex = firstRow; rowIndex < rows.size(); rowIndex++) {
+                result.add(new SourcedRow(rows.get(rowIndex), fragment.pageNumber()));
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    /**
+     * Строка принятой таблицы и страница её исходного фрагмента.
+     *
+     * @param row логическая строка
+     * @param pageNumber физическая страница фрагмента
+     */
+    public record SourcedRow(TableRow row, int pageNumber) {
+        public SourcedRow {
+            Objects.requireNonNull(row, "Table row must not be null");
+            if (pageNumber < 1) {
+                throw new IllegalArgumentException("Source page number must be positive");
+            }
+        }
     }
 
     /**
