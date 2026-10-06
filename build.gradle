@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'com.pdf2tz'
-version = '0.2.1'
+version = '0.3.0'
 description = 'pdf2tz'
 
 java {

@@ -1,19 +1,23 @@
 package com.pdf2tz.backend.api.pdf;
 
 import com.pdf2tz.backend.api.pdf.dto.PdfChunkedDocumentResponseDto;
+import com.pdf2tz.backend.api.pdf.dto.PdfContextResponseDto;
 import com.pdf2tz.backend.api.pdf.dto.PdfParsedDocumentResponseDto;
 import com.pdf2tz.backend.api.pdf.dto.PdfResponseDto;
 import com.pdf2tz.backend.api.pdf.dto.PdfTablesResponseDto;
 import com.pdf2tz.backend.api.pdf.mapper.PdfChunkedDocumentResponseMapper;
+import com.pdf2tz.backend.api.pdf.mapper.PdfContextResponseMapper;
 import com.pdf2tz.backend.api.pdf.mapper.PdfParsedDocumentResponseMapper;
 import com.pdf2tz.backend.api.pdf.mapper.PdfResponseMapper;
 import com.pdf2tz.backend.api.pdf.mapper.PdfTableResponseMapper;
 import com.pdf2tz.backend.application.pdf.PdfChunkingPipeline;
+import com.pdf2tz.backend.application.pdf.PdfContextPreparationPipeline;
 import com.pdf2tz.backend.application.pdf.PdfParsingPipeline;
 import com.pdf2tz.backend.application.pdf.PdfTableParsingPipeline;
 import com.pdf2tz.backend.application.pdf.model.chunk.ChunkedDocument;
 import com.pdf2tz.backend.application.pdf.model.document.ParsedDocument;
 import com.pdf2tz.backend.application.pdf.model.cleaning.CleanedTextDocument;
+import com.pdf2tz.backend.application.pdf.model.retrieval.PreparedPdfContext;
 import com.pdf2tz.backend.application.pdf.model.table.ParsedTable;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
@@ -32,6 +36,7 @@ class PdfControllerTest {
     private final PdfUploadReader pdfUploadReader = mock(PdfUploadReader.class);
     private final PdfParsingPipeline pdfParsingPipeline = mock(PdfParsingPipeline.class);
     private final PdfChunkingPipeline pdfChunkingPipeline = mock(PdfChunkingPipeline.class);
+    private final PdfContextPreparationPipeline pdfContextPreparationPipeline = mock(PdfContextPreparationPipeline.class);
     private final PdfTableParsingPipeline pdfTableParsingPipeline = mock(PdfTableParsingPipeline.class);
     private final PdfResponseMapper pdfResponseMapper = mock(PdfResponseMapper.class);
     private final PdfTableResponseMapper pdfTableResponseMapper = mock(PdfTableResponseMapper.class);
@@ -41,15 +46,18 @@ class PdfControllerTest {
     private final PdfChunkedDocumentResponseMapper pdfChunkedDocumentResponseMapper = mock(
             PdfChunkedDocumentResponseMapper.class
     );
+    private final PdfContextResponseMapper pdfContextResponseMapper = mock(PdfContextResponseMapper.class);
     private final PdfController controller = new PdfController(
             pdfUploadReader,
             pdfParsingPipeline,
             pdfChunkingPipeline,
+            pdfContextPreparationPipeline,
             pdfTableParsingPipeline,
             pdfResponseMapper,
             pdfTableResponseMapper,
             pdfParsedDocumentResponseMapper,
-            pdfChunkedDocumentResponseMapper
+            pdfChunkedDocumentResponseMapper,
+            pdfContextResponseMapper
     );
 
     @Test
@@ -123,5 +131,23 @@ class PdfControllerTest {
         verify(pdfChunkingPipeline).chunk(content);
         verify(pdfParsingPipeline, never()).parse(content);
         verify(pdfTableParsingPipeline, never()).parseTables(content);
+    }
+
+    @Test
+    void prepareContextUsesPromptAndExistingChunkingPipeline() {
+        MultipartFile file = mock(MultipartFile.class);
+        byte[] content = new byte[]{1, 2, 3};
+        PreparedPdfContext context = mock(PreparedPdfContext.class);
+        PdfContextResponseDto response = mock(PdfContextResponseDto.class);
+        when(pdfUploadReader.read(file)).thenReturn(content);
+        when(pdfContextPreparationPipeline.prepare(content, "Периодичность ТО"))
+                .thenReturn(context);
+        when(pdfContextResponseMapper.toResponse(context)).thenReturn(response);
+
+        ResponseEntity<PdfContextResponseDto> result = controller.prepareContext(file, "Периодичность ТО");
+
+        assertSame(response, result.getBody());
+        verify(pdfChunkingPipeline, never()).chunk(content);
+        verify(pdfParsingPipeline, never()).parse(content);
     }
 }

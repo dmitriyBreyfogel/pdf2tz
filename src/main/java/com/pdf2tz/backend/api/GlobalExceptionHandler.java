@@ -3,6 +3,7 @@ package com.pdf2tz.backend.api;
 import com.pdf2tz.backend.error.AppException;
 import com.pdf2tz.backend.error.ErrorCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MultipartException;
@@ -27,6 +28,13 @@ public class GlobalExceptionHandler {
                 ErrorCode.INVALID_UPLOAD_REQUEST,
                 "Ожидается multipart/form-data с файлом в поле file"
         ));
+    }
+
+    /** Отсутствующий prompt отличается от ошибки multipart-файла. */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingPrompt(MissingServletRequestParameterException ex) {
+        return handleAppException(AppException.build(
+                ErrorCode.INVALID_PROMPT, "Ожидается непустое поле prompt"));
     }
 
     /**

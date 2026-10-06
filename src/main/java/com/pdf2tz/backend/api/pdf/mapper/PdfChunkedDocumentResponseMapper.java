@@ -34,7 +34,8 @@ public class PdfChunkedDocumentResponseMapper {
         );
     }
 
-    private PdfDocumentChunkResponseDto toChunkResponse(DocumentChunk chunk) {
+    /** Преобразует один чанк, сохраняя его страницы и полный путь раздела. */
+    public PdfDocumentChunkResponseDto toChunkResponse(DocumentChunk chunk) {
         return new PdfDocumentChunkResponseDto(
                 chunk.chunkNumber(),
                 chunk.sectionPath().headings().stream()
