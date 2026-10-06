@@ -10,6 +10,9 @@ import com.pdf2tz.backend.application.pdf.chunking.table.TableChunkSplitter;
 import com.pdf2tz.backend.application.pdf.chunking.table.TableHeaderDetector;
 import com.pdf2tz.backend.application.pdf.chunking.structure.DocumentStructureAnalyzer;
 import com.pdf2tz.backend.application.pdf.chunking.text.TextSegmentSplitter;
+import com.pdf2tz.backend.application.pdf.retrieval.LexicalChunkRanker;
+import com.pdf2tz.backend.application.pdf.retrieval.PdfContextAssembler;
+import com.pdf2tz.backend.application.pdf.retrieval.RetrievalProperties;
 import com.pdf2tz.backend.application.pdf.cleaning.DocumentNoiseProfileBuilder;
 import com.pdf2tz.backend.application.pdf.cleaning.TextCleaner;
 import com.pdf2tz.backend.application.pdf.model.chunk.ChunkedDocument;
@@ -39,6 +42,43 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @EnabledIfEnvironmentVariable(named = "PDF_INSTRUCTION_DIRECTORY", matches = ".+")
 class PdfChunkingInstructionRegressionTest {
+
+    @Test
+    void retrievesMaintenanceIntervalFromLargeInstruction() throws Exception {
+        var context = contextPipeline().prepare(content("1373967.pdf"),
+                "Редукторы давления: через сколько лет общий осмотр и замена?");
+
+        assertTrue(context.contextAvailable());
+        assertTrue(context.selectedChunks().stream().anyMatch(chunk ->
+                chunk.content().contains("Через 6 лет")
+                        && chunk.pageRange().startPageNumber() <= 203
+                        && chunk.pageRange().endPageNumber() >= 202));
+        assertTrue(context.estimatedTokenCount() <= 8192);
+    }
+
+    @Test
+    void retrievesErrorCodesFromMultiPageTable() throws Exception {
+        var context = contextPipeline().prepare(content("1373694.pdf"),
+                "Cell Saver error codes for clamp and reservoir red line");
+
+        assertTrue(context.contextAvailable());
+        assertTrue(context.selectedChunks().stream().anyMatch(chunk ->
+                chunk.content().contains("Clamp error")
+                        && chunk.pageRange().startPageNumber() <= 145
+                        && chunk.pageRange().endPageNumber() >= 145));
+    }
+
+    @Test
+    void retrievesInfusionInstructionsFromWatermarkedPdf() throws Exception {
+        var context = contextPipeline().prepare(content("1372805.pdf"),
+                "Как подключить дополнительную магистраль для инфузии?");
+
+        assertTrue(context.contextAvailable());
+        assertTrue(context.selectedChunks().stream().anyMatch(chunk ->
+                chunk.content().contains("дополнительную магистраль")
+                        && chunk.pageRange().startPageNumber() <= 30
+                        && chunk.pageRange().endPageNumber() >= 30));
+    }
 
     @Test
     void chunksLargeDigitalInstructionWithoutOverflow() throws Exception {
@@ -245,6 +285,18 @@ class PdfChunkingInstructionRegressionTest {
                 parser,
                 new DocumentStructureAnalyzer(),
                 chunker
+        );
+    }
+
+    private PdfContextPreparationPipeline contextPipeline() {
+        RetrievalProperties properties = new RetrievalProperties();
+        JTokkitTokenizerAdapter tokenizer = new JTokkitTokenizerAdapter();
+        return new PdfContextPreparationPipeline(
+                pipeline(),
+                new LexicalChunkRanker(),
+                new PdfContextAssembler(properties, tokenizer),
+                tokenizer,
+                properties
         );
     }
 
