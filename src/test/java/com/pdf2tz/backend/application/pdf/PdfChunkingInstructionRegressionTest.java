@@ -227,10 +227,7 @@ class PdfChunkingInstructionRegressionTest {
                 new ParsedDocumentAssembler(new TextTableOverlapCleaner())
         );
         JTokkitTokenizerAdapter tokenizer = new JTokkitTokenizerAdapter();
-        TextSegmentSplitter textSplitter = new TextSegmentSplitter(
-                new IcuTextBoundaryAdapter(),
-                tokenizer
-        );
+        TextSegmentSplitter textSplitter = new TextSegmentSplitter(new IcuTextBoundaryAdapter());
         TableTextSerializer tableSerializer = new TableTextSerializer();
         StructuredDocumentChunker chunker = new StructuredDocumentChunker(
                 new ChunkingProperties(),
@@ -240,8 +237,7 @@ class PdfChunkingInstructionRegressionTest {
                 new TableChunkSplitter(
                         tableSerializer,
                         new TableHeaderDetector(),
-                        textSplitter,
-                        tokenizer
+                        textSplitter
                 ),
                 textSplitter
         );

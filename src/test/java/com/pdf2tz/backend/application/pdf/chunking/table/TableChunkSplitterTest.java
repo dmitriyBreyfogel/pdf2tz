@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TableChunkSplitterTest {
@@ -29,8 +30,7 @@ class TableChunkSplitterTest {
     private final TableChunkSplitter splitter = new TableChunkSplitter(
             tableSerializer,
             new TableHeaderDetector(),
-            new TextSegmentSplitter(new IcuTextBoundaryAdapter(), tokenizer),
-            tokenizer
+            new TextSegmentSplitter(new IcuTextBoundaryAdapter())
     );
 
     @Test
@@ -97,17 +97,30 @@ class TableChunkSplitterTest {
     void preservesEmptyColumnMarkerInOversizedRowFallback() {
         ParsedTable table = table(List.of(
                 row("Параметр", "Описание"),
-                row("Код", ""),
+                row("Код ".repeat(150), ""),
                 row("Код 2", "Обычное значение")
         ));
         SectionPath path = new SectionPath(List.of(new SectionHeading(1, "1 Operation", 1)));
 
         List<TableChunkPart> parts = splitter.split(
                 table,
-                body -> tokenizer.countTokens(documentSerializer.serialize(path, List.of(body))) <= 30
+                body -> tokenizer.countTokens(documentSerializer.serialize(path, List.of(body))) <= 128
         );
 
         assertTrue(parts.stream().anyMatch(part -> part.content().contains("[COLUMN 2]")));
+    }
+
+    @Test
+    void rejectsBudgetTooSmallForTablePartInsteadOfReturningUnboundedContent() {
+        ParsedTable table = table(List.of(
+                row("Параметр", "Описание"),
+                row("Код", ""),
+                row("Код 2", "Обычное значение")
+        ));
+        SectionPath path = new SectionPath(List.of(new SectionHeading(1, "1 Operation", 1)));
+
+        assertThrows(IllegalArgumentException.class, () -> splitter.split(table,
+                body -> tokenizer.countTokens(documentSerializer.serialize(path, List.of(body))) <= 30));
     }
 
     @Test

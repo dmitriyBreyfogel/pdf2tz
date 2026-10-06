@@ -75,6 +75,26 @@ class StructuredDocumentChunkerTest {
     }
 
     @Test
+    void keepsUnicodeTextExactlyWhenOversizedBlockIsSplit() {
+        ChunkingProperties properties = new ChunkingProperties();
+        properties.setMaxTokens(128);
+        String sourceText = "🩺患者".repeat(200);
+
+        ChunkedDocument result = chunker(properties).chunk(new StructuredDocument(List.of(
+                new StructuredTextBlock(SectionPath.root(),
+                        com.pdf2tz.backend.application.pdf.model.document.PageRange.single(1),
+                        sourceText)
+        )));
+
+        assertTrue(result.chunks().size() > 1);
+        assertEquals(sourceText, result.chunks().stream()
+                .map(chunk -> chunk.content())
+                .collect(java.util.stream.Collectors.joining()));
+        assertTrue(result.chunks().stream().allMatch(chunk ->
+                chunk.estimatedTokenCount() <= properties.maxTokens()));
+    }
+
+    @Test
     void emitsHeadingOnlyChunkForEmptyTrailingSection() {
         ChunkingProperties properties = new ChunkingProperties();
         StructuredDocumentChunker chunker = chunker(properties);
@@ -167,10 +187,9 @@ class StructuredDocumentChunkerTest {
                 new TableChunkSplitter(
                         new TableTextSerializer(),
                         new TableHeaderDetector(),
-                        new TextSegmentSplitter(new IcuTextBoundaryAdapter(), tokenizer),
-                        tokenizer
+                        new TextSegmentSplitter(new IcuTextBoundaryAdapter())
                 ),
-                new TextSegmentSplitter(new IcuTextBoundaryAdapter(), tokenizer)
+                new TextSegmentSplitter(new IcuTextBoundaryAdapter())
         );
     }
 }

@@ -7,7 +7,6 @@ import com.pdf2tz.backend.application.pdf.model.table.ParsedTable;
 import com.pdf2tz.backend.application.pdf.model.table.ParsedTable.SourcedRow;
 import com.pdf2tz.backend.application.pdf.model.table.TableCell;
 import com.pdf2tz.backend.application.pdf.model.table.TableRow;
-import com.pdf2tz.backend.application.ports.LlmTokenizerPort;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -25,13 +24,11 @@ public class TableChunkSplitter {
     private final TableTextSerializer serializer;
     private final TableHeaderDetector headerDetector;
     private final TextSegmentSplitter textSegmentSplitter;
-    private final LlmTokenizerPort tokenizer;
 
     public TableChunkSplitter(
             TableTextSerializer serializer,
             TableHeaderDetector headerDetector,
-            TextSegmentSplitter textSegmentSplitter,
-            LlmTokenizerPort tokenizer
+            TextSegmentSplitter textSegmentSplitter
     ) {
         this.serializer = Objects.requireNonNull(serializer, "Table serializer must not be null");
         this.headerDetector = Objects.requireNonNull(headerDetector, "Table header detector must not be null");
@@ -39,7 +36,6 @@ public class TableChunkSplitter {
                 textSegmentSplitter,
                 "Text segment splitter must not be null"
         );
-        this.tokenizer = Objects.requireNonNull(tokenizer, "Tokenizer must not be null");
     }
 
     /**
@@ -202,12 +198,7 @@ public class TableChunkSplitter {
                     fits
             );
             if (split.acceptedPrefix().isBlank()) {
-                if (tokenizer.countTokens(remainder) <= 1) {
-                    throw new IllegalArgumentException("Table cell cannot fit into chunk budget");
-                }
-                List<String> tokenParts = tokenizer.splitByTokenLimit(remainder, 1);
-                result.addAll(tokenParts);
-                break;
+                throw new IllegalArgumentException("Table cell cannot fit into chunk budget");
             }
             result.add(split.acceptedPrefix());
             remainder = split.remainder();

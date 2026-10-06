@@ -1,6 +1,5 @@
 package com.pdf2tz.backend.application.pdf.chunking.text;
 
-import com.pdf2tz.backend.application.ports.LlmTokenizerPort;
 import com.pdf2tz.backend.application.ports.TextBoundaryPort;
 import org.springframework.stereotype.Component;
 
@@ -14,7 +13,8 @@ import java.util.regex.Pattern;
 /**
  * Выбирает максимальный lossless prefix текста под динамическим payload budget.
  *
- * <p>Порядок fallback-границ: абзацы, предложения, словесные границы, token-level.
+ * <p>Порядок fallback-границ: абзацы, предложения, словесные границы,
+ * затем границы Unicode code point.
  * Метод не знает о section path и serializer: caller передаёт predicate,
  * который проверяет полный prospective content.</p>
  */
@@ -24,14 +24,9 @@ public class TextSegmentSplitter {
     private static final Pattern PARAGRAPH_BREAK = Pattern.compile("\\n{2,}");
 
     private final TextBoundaryPort textBoundaryPort;
-    private final LlmTokenizerPort tokenizerPort;
 
-    public TextSegmentSplitter(
-            TextBoundaryPort textBoundaryPort,
-            LlmTokenizerPort tokenizerPort
-    ) {
+    public TextSegmentSplitter(TextBoundaryPort textBoundaryPort) {
         this.textBoundaryPort = Objects.requireNonNull(textBoundaryPort, "Text boundary port must not be null");
-        this.tokenizerPort = Objects.requireNonNull(tokenizerPort, "Tokenizer port must not be null");
     }
 
     /**
@@ -70,7 +65,7 @@ public class TextSegmentSplitter {
             return wordResult;
         }
 
-        return byTokens(text, fits);
+        return byCodePoints(text, fits);
     }
 
     private List<Integer> paragraphEndOffsets(String text) {
@@ -102,31 +97,26 @@ public class TextSegmentSplitter {
         return splitAt(text, bestEnd);
     }
 
-    private TextSplitResult byTokens(
+    private TextSplitResult byCodePoints(
             String text,
             Predicate<String> fits
     ) {
-        int tokenCount = tokenizerPort.countTokens(text);
         int low = 1;
-        int high = Math.max(1, tokenCount);
-        String best = "";
+        int high = text.codePointCount(0, text.length());
+        int bestEnd = 0;
 
         while (low <= high) {
-            int candidateLimit = low + (high - low) / 2;
-            List<String> tokenParts = tokenizerPort.splitByTokenLimit(text, candidateLimit);
-            String candidate = tokenParts.isEmpty() ? "" : tokenParts.get(0);
-            if (!candidate.isEmpty() && fits.test(candidate)) {
-                best = candidate;
-                low = candidateLimit + 1;
+            int codePoints = low + (high - low) / 2;
+            int end = text.offsetByCodePoints(0, codePoints);
+            if (fits.test(text.substring(0, end))) {
+                bestEnd = end;
+                low = codePoints + 1;
             } else {
-                high = candidateLimit - 1;
+                high = codePoints - 1;
             }
         }
 
-        if (best.isBlank()) {
-            return new TextSplitResult("", text);
-        }
-        return splitAt(text, best.length());
+        return splitAt(text, bestEnd);
     }
 
     private TextSplitResult splitAt(String text, int end) {
