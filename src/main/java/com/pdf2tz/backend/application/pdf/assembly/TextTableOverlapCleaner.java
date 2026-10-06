@@ -10,7 +10,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 import static com.pdf2tz.backend.application.pdf.table.TableTextMatch.compact;
 
@@ -93,12 +92,24 @@ public class TextTableOverlapCleaner {
                     .trim();
         }
 
-        return page.text()
-                .lines()
-                .map(String::trim)
-                .filter(line -> !line.isBlank())
-                .filter(line -> !isTableDuplicateLine(line, rowSignatures, cellSignatures))
-                .collect(Collectors.joining(LINE_SEPARATOR));
+        StringBuilder retainedText = new StringBuilder();
+        boolean paragraphBreak = false;
+        for (String sourceLine : page.text().lines().toList()) {
+            if (sourceLine.isBlank()) {
+                paragraphBreak = true;
+                continue;
+            }
+            String line = sourceLine.trim();
+            if (isTableDuplicateLine(line, rowSignatures, cellSignatures)) {
+                continue;
+            }
+            if (!retainedText.isEmpty()) {
+                retainedText.append(paragraphBreak ? LINE_SEPARATOR + LINE_SEPARATOR : LINE_SEPARATOR);
+            }
+            retainedText.append(line);
+            paragraphBreak = false;
+        }
+        return retainedText.toString();
     }
 
     private boolean isTableDuplicateLine(

@@ -18,6 +18,24 @@ class TextTableOverlapCleanerTest {
     private final TextTableOverlapCleaner cleaner = new TextTableOverlapCleaner();
 
     @Test
+    void keepsExplicitParagraphBreaksBesideAcceptedTableWithoutAddingOthers() {
+        ParsedTable table = table(fragment(
+                area(1, 100, 40),
+                row("Параметр", "Значение"),
+                row("Скорость", "10 мл/ч")
+        ));
+
+        assertEquals("Первый абзац\n\nВторой абзац",
+                cleaner.removeOverlaps(new CleanedTextPage(1,
+                        "Первый абзац\n\nПараметр Значение\nСкорость 10 мл/ч\nВторой абзац"),
+                        List.of(table)));
+        assertEquals("Первая строка\nВторая строка",
+                cleaner.removeOverlaps(new CleanedTextPage(1,
+                        "Первая строка\nПараметр Значение\nВторая строка"),
+                        List.of(table)));
+    }
+
+    @Test
     void removesTableRowsFromTextOnSamePage() {
         CleanedTextPage page = new CleanedTextPage(1, """
                 Перед таблицей
