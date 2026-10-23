@@ -86,6 +86,49 @@ class DocumentStructureAnalyzerTest {
     }
 
     @Test
+    void closesPreviousNumberedBranchWhenParentHeadingIsMissing() {
+        ParsedDocument document = new ParsedDocument(List.of(
+                new ParsedPage(1, List.of(new TextBlock("""
+                        1.3 Другие документы
+                        Текст первого раздела.
+                        1.4.3 Дополнительные сведения
+                        Текст нового раздела.
+                        """)))
+        ));
+
+        List<StructuredHeadingBlock> headings = analyzer.analyze(document).blocks().stream()
+                .filter(StructuredHeadingBlock.class::isInstance)
+                .map(StructuredHeadingBlock.class::cast)
+                .toList();
+
+        assertEquals(2, headings.size());
+        assertEquals(List.of("1.4.3 Дополнительные сведения"),
+                headings.get(1).sectionPath().headings().stream().map(h -> h.text()).toList());
+    }
+
+    @Test
+    void retainsCompatibleNumberedParentAndRecognizesRepeatedTitleInNewSection() {
+        ParsedDocument document = new ParsedDocument(List.of(
+                new ParsedPage(1, List.of(new TextBlock("""
+                        1.3 Обзор
+                        Текст первого раздела.
+                        1.4 Обзор
+                        1.4.3 Дополнительные сведения
+                        Текст подраздела.
+                        """)))
+        ));
+
+        List<StructuredHeadingBlock> headings = analyzer.analyze(document).blocks().stream()
+                .filter(StructuredHeadingBlock.class::isInstance)
+                .map(StructuredHeadingBlock.class::cast)
+                .toList();
+
+        assertEquals(3, headings.size());
+        assertEquals(List.of("1.4 Обзор", "1.4.3 Дополнительные сведения"),
+                headings.get(2).sectionPath().headings().stream().map(h -> h.text()).toList());
+    }
+
+    @Test
     void keepsTrailingHeadingAsStructuralEvent() {
         ParsedDocument document = new ParsedDocument(List.of(
                 new ParsedPage(1, List.of(new TextBlock("""
