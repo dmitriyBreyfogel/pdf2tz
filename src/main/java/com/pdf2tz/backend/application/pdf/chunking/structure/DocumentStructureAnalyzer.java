@@ -18,12 +18,15 @@ import com.pdf2tz.backend.application.pdf.table.TableTextMatch;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -37,6 +40,11 @@ import java.util.stream.Collectors;
  */
 @Service
 public class DocumentStructureAnalyzer {
+
+    /** Номер принятого заголовка нужен для проверки совместимости родителя и подраздела. */
+    private static final Pattern LEADING_DECIMAL_NUMBER = Pattern.compile(
+            "^\\s*(\\d+(?:\\.\\d+)*)[.)]?\\s+"
+    );
 
     private final HeadingDetector headingDetector;
     private final HeadingLevelResolver headingLevelResolver;
@@ -240,7 +248,24 @@ public class DocumentStructureAnalyzer {
                 new HeadingLevelResolver.ListContext(letterAsNested, titleCaseNested)
         );
         List<SectionHeading> headings = new ArrayList<>(currentPath.headings());
-        headings.removeIf(existing -> existing.level() >= heading.level());
+        int truncateAtLevel = heading.level();
+        if (candidate.scheme() == HeadingScheme.DECIMAL) {
+            String candidateNumber = decimalNumber(candidate.numbering());
+            for (SectionHeading existing : headings) {
+                if (existing.level() >= heading.level()) {
+                    break;
+                }
+                String ancestorNumber = leadingDecimalNumber(existing.text());
+                if (ancestorNumber != null && !candidateNumber.startsWith(ancestorNumber + ".")) {
+                    // Пропущенный заголовок родительского раздела не делает 1.4.3
+                    // подразделом 1.3: старую ветку нужно закрыть целиком.
+                    truncateAtLevel = existing.level();
+                    break;
+                }
+            }
+        }
+        int firstRemovedLevel = truncateAtLevel;
+        headings.removeIf(existing -> existing.level() >= firstRemovedLevel);
         headings.add(heading);
         return new SectionPath(headings);
     }
@@ -255,7 +280,23 @@ public class DocumentStructureAnalyzer {
 
         String candidateTitle = normalizeHeading(candidate.headingText());
         return currentPath.headings().stream()
-                .anyMatch(heading -> normalizeHeading(heading.text()).equals(candidateTitle));
+                .anyMatch(heading -> normalizeHeading(heading.text()).equals(candidateTitle)
+                        && (candidate.scheme() != HeadingScheme.DECIMAL
+                        || decimalNumber(candidate.numbering()).equals(leadingDecimalNumber(heading.text()))));
+    }
+
+    private String decimalNumber(List<Integer> components) {
+        return components.stream().map(String::valueOf).collect(Collectors.joining("."));
+    }
+
+    private String leadingDecimalNumber(String text) {
+        Matcher matcher = LEADING_DECIMAL_NUMBER.matcher(text);
+        if (!matcher.find()) {
+            return null;
+        }
+        return Arrays.stream(matcher.group(1).split("\\."))
+                .map(component -> component.replaceFirst("^0+(?!$)", ""))
+                .collect(Collectors.joining("."));
     }
 
     private String normalizeHeading(String text) {

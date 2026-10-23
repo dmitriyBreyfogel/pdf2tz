@@ -262,6 +262,17 @@ class PdfChunkingInstructionRegressionTest {
                 chunk.pageRange().startPageNumber() >= 250
                         && chunk.sectionPath().headings().stream().anyMatch(heading ->
                                 heading.text().equals("10.2 Графики мощности, напряжения и тока"))));
+        List<com.pdf2tz.backend.application.pdf.model.chunk.DocumentChunk> inspectionChunks =
+                document.chunks().stream()
+                        .filter(chunk -> chunk.pageRange().startPageNumber() <= 103
+                                && chunk.pageRange().endPageNumber() >= 103)
+                        .filter(chunk -> chunk.sectionPath().headings().stream().anyMatch(heading ->
+                                heading.text().equals("8.1.1 Safety inspection")))
+                        .toList();
+        assertFalse(inspectionChunks.isEmpty());
+        assertTrue(inspectionChunks.stream().noneMatch(chunk ->
+                chunk.sectionPath().headings().stream().anyMatch(heading ->
+                        heading.text().startsWith("7.2 "))));
     }
 
     private PdfChunkingPipeline pipeline() {
