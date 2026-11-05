@@ -13,8 +13,9 @@ import org.springframework.web.client.RestClient;
 
 @Component
 public class RouterAiHttpClient implements RouterAiClient {
-    private final RouterAiProperties properties; private final ObjectMapper mapper;
-    public RouterAiHttpClient(RouterAiProperties properties, ObjectMapper mapper) { this.properties = properties; this.mapper = mapper; }
+    private final RouterAiProperties properties;
+    private final ObjectMapper mapper = new ObjectMapper();
+    public RouterAiHttpClient(RouterAiProperties properties) { this.properties = properties; }
     @Override public JsonNode generate(MaintenanceLlmModel model, String instruction, String context) {
         if (properties.apiKey() == null || properties.apiKey().isBlank()) throw AppException.build(ErrorCode.LLM_NOT_CONFIGURED, "Не задана переменная окружения ROUTERAI_API_KEY");
         ObjectNode body = mapper.createObjectNode(); body.put("model", model.routerAiId()); body.put("temperature", 0); body.put("max_tokens", 8000);
