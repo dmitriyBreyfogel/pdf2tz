@@ -1,6 +1,7 @@
 package com.pdf2tz.backend.application.maintenance;
 
 import com.pdf2tz.backend.application.pdf.model.chunk.DocumentChunk;
+import com.pdf2tz.backend.application.pdf.model.structure.SectionHeading;
 import org.springframework.stereotype.Component;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
@@ -31,19 +32,42 @@ public class MaintenanceChunkSelector {
                 .sorted(Comparator.comparingInt(this::score).reversed().thenComparingInt(DocumentChunk::chunkNumber)).toList();
         var numbers = new LinkedHashSet<Integer>(relevantNumbers);
         if (ranked.isEmpty() && numbers.isEmpty()) return chunks.stream().limit(1).toList();
-        ranked.forEach(chunk -> {
-            numbers.add(chunk.chunkNumber());
-            addNeighbour(chunks, numbers, chunk, chunk.chunkNumber() - 1);
-            addNeighbour(chunks, numbers, chunk, chunk.chunkNumber() + 1);
-        });
+        ranked.forEach(chunk -> numbers.add(chunk.chunkNumber()));
+        expandMaintenanceSections(chunks, numbers);
         if (!chunks.isEmpty() && !isContents(chunks.get(0))) numbers.add(1); // паспортные данные изделия
         return chunks.stream().filter(c -> numbers.contains(c.chunkNumber())).toList();
     }
 
-    private void addNeighbour(List<DocumentChunk> chunks, LinkedHashSet<Integer> numbers, DocumentChunk source, int number) {
-        if (number < 1 || number > chunks.size()) return;
-        DocumentChunk neighbour = chunks.get(number - 1);
-        if (maintenanceHeading(neighbour) && headings(source).equals(headings(neighbour))) numbers.add(number);
+    /**
+     * A work table often starts in one chunk and continues in child sections whose headings do not
+     * themselves repeat "maintenance". Retaining the complete positive section avoids cutting off
+     * frequencies, exceptions and consumables at a chunk boundary.
+     */
+    private void expandMaintenanceSections(List<DocumentChunk> chunks, LinkedHashSet<Integer> numbers) {
+        List<List<SectionHeading>> scopes = chunks.stream()
+                .filter(chunk -> numbers.contains(chunk.chunkNumber()))
+                .map(this::maintenanceScope)
+                .filter(scope -> !scope.isEmpty())
+                .distinct()
+                .toList();
+        chunks.stream().filter(chunk -> scopes.stream().anyMatch(scope -> belongsToScope(chunk, scope)))
+                .filter(chunk -> !excluded(chunk)).map(DocumentChunk::chunkNumber).forEach(numbers::add);
+    }
+
+    private List<SectionHeading> maintenanceScope(DocumentChunk chunk) {
+        List<SectionHeading> path = chunk.sectionPath().headings();
+        for (int index = path.size() - 1; index >= 0; index--) {
+            String heading = path.get(index).text().toLowerCase(Locale.ROOT);
+            if (matches(heading, MAINTENANCE) + matches(heading, CONSUMABLES) > 0) {
+                return path.subList(0, index + 1);
+            }
+        }
+        return List.of();
+    }
+
+    private boolean belongsToScope(DocumentChunk chunk, List<SectionHeading> scope) {
+        List<SectionHeading> headings = chunk.sectionPath().headings();
+        return headings.size() >= scope.size() && headings.subList(0, scope.size()).equals(scope);
     }
     private int score(DocumentChunk chunk) {
         String headings = headings(chunk), content = chunk.content().toLowerCase(Locale.ROOT);
@@ -64,7 +88,6 @@ public class MaintenanceChunkSelector {
         if (careAction && (headingSignals > 0 || frequency || table)) score += 35;
         return score;
     }
-    private boolean maintenanceHeading(DocumentChunk chunk) { return matches(headings(chunk), MAINTENANCE) + matches(headings(chunk), CONSUMABLES) > 0; }
     private int matches(String text, List<String> terms) { return (int) terms.stream().filter(text::contains).count(); }
     private boolean any(String text, List<String> terms) { return terms.stream().anyMatch(text::contains); }
     private boolean containsFrequency(String content) {
