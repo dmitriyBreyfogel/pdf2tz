@@ -47,7 +47,7 @@ public class OnnxMultilingualChunkSemanticSearch implements ChunkSemanticSearch 
         try {
             this.tokenizer = HuggingFaceTokenizer.newInstance(modelDirectory);
             this.session = OrtEnvironment.getEnvironment().createSession(modelDirectory.resolve("model.onnx").toString(), new OrtSession.SessionOptions());
-            this.queryVectors = QUERIES.stream().map(this::embed).toList();
+            this.queryVectors = embedBatch(QUERIES);
         } catch (OrtException | IOException exception) {
             throw new IllegalStateException("Не удалось загрузить локальную embedding-модель из " + modelDirectory, exception);
         }
@@ -55,9 +55,16 @@ public class OnnxMultilingualChunkSemanticSearch implements ChunkSemanticSearch 
 
     @Override
     public Set<Integer> findRelevantChunkNumbers(List<DocumentChunk> chunks) {
+        List<float[]> vectors = new ArrayList<>();
+        for (int offset = 0; offset < chunks.size(); offset += properties.batchSize()) {
+            List<String> texts = chunks.subList(offset, Math.min(offset + properties.batchSize(), chunks.size())).stream()
+                    .map(chunk -> compact(chunk.content())).toList();
+            vectors.addAll(embedBatch(texts));
+        }
         List<ScoredChunk> candidates = new ArrayList<>();
-        for (DocumentChunk chunk : chunks) {
-            float[] vector = embed(chunk.content());
+        for (int index = 0; index < chunks.size(); index++) {
+            DocumentChunk chunk = chunks.get(index);
+            float[] vector = vectors.get(index);
             double similarity = queryVectors.stream().mapToDouble(query -> cosine(query, vector)).max().orElse(0);
             if (similarity >= properties.similarityThreshold()) candidates.add(new ScoredChunk(chunk.chunkNumber(), similarity));
         }
@@ -65,23 +72,28 @@ public class OnnxMultilingualChunkSemanticSearch implements ChunkSemanticSearch 
                 .limit(properties.maxCandidates()).map(ScoredChunk::chunkNumber).collect(Collectors.toSet());
     }
 
-    private float[] embed(String text) {
-        Encoding encoding = tokenizer.encode(text);
-        long[] ids = encoding.getIds();
-        long[] attentionMask = encoding.getAttentionMask();
+    private List<float[]> embedBatch(List<String> texts) {
+        Encoding[] encodings = tokenizer.batchEncode(texts);
+        int maxLength = java.util.Arrays.stream(encodings).mapToInt(encoding -> encoding.getIds().length).max().orElseThrow();
+        long[] ids = new long[encodings.length * maxLength];
+        long[] attentionMask = new long[encodings.length * maxLength];
+        for (int index = 0; index < encodings.length; index++) {
+            System.arraycopy(encodings[index].getIds(), 0, ids, index * maxLength, encodings[index].getIds().length);
+            System.arraycopy(encodings[index].getAttentionMask(), 0, attentionMask, index * maxLength, encodings[index].getAttentionMask().length);
+        }
         OnnxTensor tokenTypes = null;
-        try (OnnxTensor inputIds = tensor(ids); OnnxTensor attention = tensor(attentionMask)) {
+        try (OnnxTensor inputIds = tensor(ids, encodings.length, maxLength); OnnxTensor attention = tensor(attentionMask, encodings.length, maxLength)) {
             Map<String, OnnxTensor> inputs = new HashMap<>();
             inputs.put("input_ids", inputIds);
             if (session.getInputNames().contains("attention_mask")) inputs.put("attention_mask", attention);
             if (session.getInputNames().contains("token_type_ids")) {
-                tokenTypes = tensor(new long[ids.length]);
+                tokenTypes = tensor(new long[ids.length], encodings.length, maxLength);
                 inputs.put("token_type_ids", tokenTypes);
             }
             try (OrtSession.Result result = session.run(inputs)) {
                 OnnxValue value = result.get(0);
                 float[][][] embeddings = (float[][][]) value.getValue();
-                return normalize(embeddings[0][0]);
+                return java.util.Arrays.stream(embeddings).map(embedding -> normalize(embedding[0])).toList();
             }
         } catch (OrtException exception) {
             throw new IllegalStateException("Не удалось вычислить embedding для чанка", exception);
@@ -90,8 +102,8 @@ public class OnnxMultilingualChunkSemanticSearch implements ChunkSemanticSearch 
         }
     }
 
-    private OnnxTensor tensor(long[] values) throws OrtException {
-        return OnnxTensor.createTensor(OrtEnvironment.getEnvironment(), LongBuffer.wrap(values), new long[]{1, values.length});
+    private OnnxTensor tensor(long[] values, int batchSize, int length) throws OrtException {
+        return OnnxTensor.createTensor(OrtEnvironment.getEnvironment(), LongBuffer.wrap(values), new long[]{batchSize, length});
     }
 
     private static double cosine(float[] left, float[] right) {
@@ -106,6 +118,12 @@ public class OnnxMultilingualChunkSemanticSearch implements ChunkSemanticSearch 
         float[] normalized = new float[vector.length];
         for (int index = 0; index < vector.length; index++) normalized[index] = (float) (vector[index] / Math.sqrt(length));
         return normalized;
+    }
+
+    private static String compact(String content) {
+        int limit = 6_000;
+        if (content.length() <= limit) return content;
+        return content.substring(0, limit / 2) + "\n…\n" + content.substring(content.length() - limit / 2);
     }
 
     private static void requireModelFiles(Path modelDirectory) {

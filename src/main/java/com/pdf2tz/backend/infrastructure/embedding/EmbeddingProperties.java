@@ -10,6 +10,7 @@ public class EmbeddingProperties {
     private String modelPath = "";
     private double similarityThreshold = 0.48;
     private int maxCandidates = 36;
+    private int batchSize = 8;
 
     public boolean enabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -19,4 +20,6 @@ public class EmbeddingProperties {
     public void setSimilarityThreshold(double similarityThreshold) { this.similarityThreshold = similarityThreshold; }
     public int maxCandidates() { return maxCandidates; }
     public void setMaxCandidates(int maxCandidates) { this.maxCandidates = maxCandidates; }
+    public int batchSize() { return batchSize; }
+    public void setBatchSize(int batchSize) { this.batchSize = batchSize; }
 }

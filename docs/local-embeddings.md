@@ -16,6 +16,7 @@
 ```bash
 PDF2TZ_EMBEDDINGS_ENABLED=true
 PDF2TZ_EMBEDDING_MODEL_PATH=/var/lib/pdf2tz/models/bge-m3/4de13258303883538bd53b696b452bf8099f0858
+PDF2TZ_EMBEDDING_BATCH_SIZE=8
 ```
 
 Без `PDF2TZ_EMBEDDINGS_ENABLED=true` приложение использует только структурный селектор и не пытается загружать модель. При включённой функции приложение завершит запуск с понятной ошибкой, если отсутствуют `model.onnx` или `tokenizer.json`.
