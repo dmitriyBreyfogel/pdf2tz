@@ -34,7 +34,7 @@ public class MaintenanceChunkSelector {
             addNeighbour(chunks, numbers, chunk, chunk.chunkNumber() - 1);
             addNeighbour(chunks, numbers, chunk, chunk.chunkNumber() + 1);
         });
-        numbers.add(1); // паспортные данные изделия, не участвует в ранжировании
+        if (!chunks.isEmpty() && !isContents(chunks.get(0))) numbers.add(1); // паспортные данные изделия
         return chunks.stream().filter(c -> numbers.contains(c.chunkNumber())).toList();
     }
 
@@ -45,7 +45,7 @@ public class MaintenanceChunkSelector {
     }
     private int score(DocumentChunk chunk) {
         String headings = headings(chunk), content = chunk.content().toLowerCase(Locale.ROOT);
-        if (content.contains("содержание") || headings.contains("содержание") || content.matches("(?s).*(?:\\.\\s*){6,}.*")) return -1000;
+        if (isContents(chunk)) return -1000;
         int consumableHeadings = matches(headings, CONSUMABLES);
         int headingSignals = matches(headings, MAINTENANCE) + consumableHeadings;
         if (excludedByHeadingContext(chunk) || any(content, NEGATED_MAINTENANCE)) return -1000;
@@ -68,6 +68,11 @@ public class MaintenanceChunkSelector {
     private boolean any(String text, List<String> terms) { return terms.stream().anyMatch(text::contains); }
     private boolean containsFrequency(String content) {
         return content.matches("(?s).*\\b(?:ежеднев\\p{L}*|еженедел\\p{L}*|ежемесяч\\p{L}*|ежегод\\p{L}*|кажд\\p{L}*|(?:час|месяц|год)\\p{L}*|weekly|monthly|annually|every)\\b.*");
+    }
+    private boolean isContents(DocumentChunk chunk) {
+        String headings = headings(chunk);
+        String content = chunk.content().toLowerCase(Locale.ROOT);
+        return content.contains("содержание") || headings.contains("содержание") || content.matches("(?s).*(?:\\.\\s*){6,}.*");
     }
     private boolean excludedByHeadingContext(DocumentChunk chunk) {
         List<String> headings = chunk.sectionPath().headings().stream()
