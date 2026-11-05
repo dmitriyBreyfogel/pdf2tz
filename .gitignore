@@ -34,3 +34,8 @@ out/
 
 ### VS Code ###
 .vscode/
+
+# Local service credentials
+.env
+.env.*
+!.env.example
