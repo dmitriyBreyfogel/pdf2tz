@@ -37,6 +37,27 @@ class MaintenanceChunkSelectionInstructionRegressionTest {
                         heading.text().contains("Общая информация по технике безопасности"))));
     }
 
+    @Test
+    void excludesSafetySectionsWhenInstructionContainsRealMaintenanceSection() throws Exception {
+        List<DocumentChunk> selected = selector.select(chunkingPipeline.chunk(content("1373228.pdf")).chunks());
+
+        assertTrue(selected.stream().anyMatch(chunk -> chunk.sectionPath().headings().stream()
+                .anyMatch(heading -> heading.text().contains("Техобслуживание"))));
+        assertTrue(selected.stream().noneMatch(chunk -> chunk.sectionPath().headings().stream()
+                .anyMatch(heading -> heading.text().contains("Personal safety instructions")
+                        || heading.text().contains("S a fe handling"))));
+    }
+
+    @Test
+    void retainsCleaningAndPeriodicMaintenanceEvidence() throws Exception {
+        List<DocumentChunk> selected = selector.select(chunkingPipeline.chunk(content("1373589.pdf")).chunks());
+
+        assertTrue(selected.stream().anyMatch(chunk -> chunk.sectionPath().headings().stream()
+                .anyMatch(heading -> heading.text().contains("Чистка и дезинфекция"))));
+        assertTrue(selected.stream().anyMatch(chunk -> chunk.sectionPath().headings().stream()
+                .anyMatch(heading -> heading.text().contains("Периодичность технического обслуживания"))));
+    }
+
     private byte[] content(String name) throws Exception {
         return Files.readAllBytes(Path.of(System.getenv("PDF_INSTRUCTION_DIRECTORY"), name));
     }
