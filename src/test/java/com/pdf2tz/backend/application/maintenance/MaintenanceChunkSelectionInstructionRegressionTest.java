@@ -32,6 +32,8 @@ class MaintenanceChunkSelectionInstructionRegressionTest {
         assertTrue(selected.stream().anyMatch(chunk -> chunk.sectionPath().headings().stream()
                 .anyMatch(heading -> heading.text().contains("Профилактическое техническое обслуживание"))));
         assertTrue(selected.stream().anyMatch(chunk -> chunk.pageRange().startPageNumber() >= 200));
+        assertTrue(selected.stream().anyMatch(chunk -> chunk.pageRange().startPageNumber() == 187));
+        assertTrue(selected.stream().anyMatch(chunk -> chunk.pageRange().startPageNumber() == 202));
         assertTrue(selected.stream().filter(chunk -> chunk.chunkNumber() != 1).noneMatch(chunk ->
                 chunk.sectionPath().headings().stream().anyMatch(heading ->
                         heading.text().contains("Общая информация по технике безопасности"))));
