@@ -32,8 +32,17 @@ public class RouterAiHttpClient implements RouterAiClient {
             JsonNode response = RestClient.builder().baseUrl(properties.baseUrl()).defaultHeader("Authorization", "Bearer " + properties.apiKey()).build()
                     .post().uri("/chat/completions").contentType(MediaType.APPLICATION_JSON).body(body).retrieve().body(JsonNode.class);
             String content = response.path("choices").path(0).path("message").path("content").asText();
-            return mapper.readTree(content);
+            return mapper.readTree(jsonContent(content));
         } catch (AppException ex) { throw ex; } catch (Exception ex) { throw AppException.build(ErrorCode.LLM_REQUEST_FAILED, "Не удалось получить ответ RouterAI"); }
+    }
+
+    /** Some providers return JSON in a Markdown fence despite an explicit JSON instruction. */
+    static String jsonContent(String content) {
+        String trimmed = content.trim();
+        if (!trimmed.startsWith("```")) return trimmed;
+        int firstLineEnd = trimmed.indexOf('\n');
+        if (firstLineEnd < 0 || !trimmed.endsWith("```")) return trimmed;
+        return trimmed.substring(firstLineEnd + 1, trimmed.length() - 3).trim();
     }
 
     private JsonNode maintenancePlanSchema() {
