@@ -12,7 +12,7 @@ import java.util.Locale;
 public class MaintenanceChunkSelector {
     private static final List<String> MAINTENANCE = List.of("профилактическ", "техническое обслуживание", "техобслужив", "очистк", "дезинфек", "обработк", "maintenance", "cleaning", "disinfection", "preventive maintenance", "service intervals");
     private static final List<String> CONSUMABLES = List.of("расходн", "принадлежност", "аксессуар", "consumable", "supplies");
-    private static final List<String> NEGATIVE = List.of("содержание", "безопасност", "предупрежден", "эксплуатац", "установк", "описание");
+    private static final List<String> NEGATIVE = List.of("содержание", "безопасност", "предупрежден", "эксплуатац", "установк", "описание", "safety", "safe handling", "operating");
     private static final List<String> SERVICE_ACTIONS = List.of("очист", "дезинф", "стерилиз", "обработ", "провер", "замен", "смаз", "калибр", "inspect", "clean", "disinfect", "steriliz", "replace", "calibrat");
     private static final List<String> CARE_ACTIONS = List.of("очист", "дезинф", "стерилиз", "обработ", "clean", "disinfect", "steriliz");
     private static final List<String> DIRECT_MAINTENANCE = List.of("техническое обслуживание", "техобслужив", "preventive maintenance", "technical maintenance", "service interval");
@@ -38,19 +38,32 @@ public class MaintenanceChunkSelector {
     }
     private int score(DocumentChunk chunk) {
         String headings = headings(chunk), content = chunk.content().toLowerCase(Locale.ROOT);
-        if (content.contains("содержание") || headings.contains("содержание") || content.matches("(?s).*\\.{8,}.*")) return -1000;
+        if (content.contains("содержание") || headings.contains("содержание") || content.matches("(?s).*(?:\\.\\s*){6,}.*")) return -1000;
         int headingSignals = matches(headings, MAINTENANCE) + matches(headings, CONSUMABLES);
         if (headingSignals == 0 && any(headings, NEGATIVE)) return -1000;
 
         int score = matches(headings, MAINTENANCE) * 100 + matches(headings, CONSUMABLES) * 70;
-        if (any(content, DIRECT_MAINTENANCE) && any(content, SERVICE_ACTIONS)) score += 45;
-        if (any(content, CARE_ACTIONS)) score += 35;
-        if (any(content, CONSUMABLES) && any(content, SERVICE_ACTIONS)) score += 25;
-        if (headingSignals == 0 && score < 35) return 0;
+        boolean directMaintenance = any(content, DIRECT_MAINTENANCE);
+        boolean serviceAction = any(content, SERVICE_ACTIONS);
+        boolean careAction = any(content, CARE_ACTIONS);
+        boolean frequency = containsFrequency(content);
+        boolean table = content.contains("[table");
+        boolean strongContent = directMaintenance && serviceAction
+                || careAction && (headingSignals > 0 || frequency || table)
+                || serviceAction && frequency
+                || any(content, CONSUMABLES) && serviceAction;
+        if (headingSignals == 0 && !strongContent) return 0;
+        if (directMaintenance && serviceAction) score += 45;
+        if (careAction && (headingSignals > 0 || frequency || table)) score += 35;
+        if (serviceAction && frequency) score += 30;
+        if (any(content, CONSUMABLES) && serviceAction) score += 25;
         return score;
     }
     private boolean maintenanceHeading(DocumentChunk chunk) { return matches(headings(chunk), MAINTENANCE) + matches(headings(chunk), CONSUMABLES) > 0; }
     private int matches(String text, List<String> terms) { return (int) terms.stream().filter(text::contains).count(); }
     private boolean any(String text, List<String> terms) { return terms.stream().anyMatch(text::contains); }
+    private boolean containsFrequency(String content) {
+        return content.matches("(?s).*\\b(?:ежеднев\\p{L}*|еженедел\\p{L}*|ежемесяч\\p{L}*|ежегод\\p{L}*|кажд\\p{L}*|(?:час|месяц|год)\\p{L}*|weekly|monthly|annually|every)\\b.*");
+    }
     private String headings(DocumentChunk chunk) { return chunk.sectionPath().headings().stream().map(h -> h.text().toLowerCase(Locale.ROOT)).reduce("", (a, b) -> a + " " + b); }
 }
