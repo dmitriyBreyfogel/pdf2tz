@@ -45,6 +45,8 @@ class MaintenanceChunkSelectionInstructionRegressionTest {
 
         assertTrue(selected.stream().anyMatch(chunk -> chunk.sectionPath().headings().stream()
                 .anyMatch(heading -> heading.text().contains("Техобслуживание"))));
+        assertTrue(selected.stream().anyMatch(chunk -> chunk.sectionPath().headings().stream()
+                .anyMatch(heading -> heading.text().contains("Reinigen und Desinfizieren"))));
         assertTrue(selected.stream().noneMatch(chunk -> chunk.sectionPath().headings().stream()
                 .anyMatch(heading -> heading.text().contains("Personal safety instructions")
                         || heading.text().contains("S a fe handling"))),
