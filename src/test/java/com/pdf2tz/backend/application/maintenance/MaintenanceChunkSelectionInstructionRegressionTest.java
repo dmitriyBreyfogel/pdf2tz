@@ -45,7 +45,8 @@ class MaintenanceChunkSelectionInstructionRegressionTest {
                 .anyMatch(heading -> heading.text().contains("Техобслуживание"))));
         assertTrue(selected.stream().noneMatch(chunk -> chunk.sectionPath().headings().stream()
                 .anyMatch(heading -> heading.text().contains("Personal safety instructions")
-                        || heading.text().contains("S a fe handling"))));
+                        || heading.text().contains("S a fe handling"))),
+                () -> selected.stream().map(chunk -> chunk.chunkNumber() + ":" + chunk.sectionPath().headings()).toList().toString());
     }
 
     @Test
