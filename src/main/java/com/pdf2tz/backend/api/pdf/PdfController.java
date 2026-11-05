@@ -1,24 +1,20 @@
 package com.pdf2tz.backend.api.pdf;
 
 import com.pdf2tz.backend.api.pdf.dto.PdfChunkedDocumentResponseDto;
-import com.pdf2tz.backend.api.pdf.dto.PdfContextResponseDto;
 import com.pdf2tz.backend.api.pdf.dto.PdfParsedDocumentResponseDto;
 import com.pdf2tz.backend.api.pdf.dto.PdfResponseDto;
 import com.pdf2tz.backend.api.pdf.dto.PdfTablesResponseDto;
 import com.pdf2tz.backend.api.pdf.mapper.PdfParsedDocumentResponseMapper;
 import com.pdf2tz.backend.api.pdf.mapper.PdfChunkedDocumentResponseMapper;
-import com.pdf2tz.backend.api.pdf.mapper.PdfContextResponseMapper;
 import com.pdf2tz.backend.api.pdf.mapper.PdfResponseMapper;
 import com.pdf2tz.backend.api.pdf.mapper.PdfTableResponseMapper;
 import com.pdf2tz.backend.application.pdf.PdfChunkingPipeline;
-import com.pdf2tz.backend.application.pdf.PdfContextPreparationPipeline;
 import com.pdf2tz.backend.application.pdf.PdfParsingPipeline;
 import com.pdf2tz.backend.application.pdf.PdfTableParsingPipeline;
 import com.pdf2tz.backend.application.pdf.model.document.ParsedDocument;
 import com.pdf2tz.backend.application.pdf.model.chunk.ChunkedDocument;
 import com.pdf2tz.backend.application.pdf.model.cleaning.CleanedTextDocument;
 import com.pdf2tz.backend.application.pdf.model.table.ParsedTable;
-import com.pdf2tz.backend.application.pdf.model.retrieval.PreparedPdfContext;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -31,36 +27,30 @@ public class PdfController implements PdfApi {
     private final PdfUploadReader pdfUploadReader;
     private final PdfParsingPipeline pdfParsingPipeline;
     private final PdfChunkingPipeline pdfChunkingPipeline;
-    private final PdfContextPreparationPipeline pdfContextPreparationPipeline;
     private final PdfTableParsingPipeline pdfTableParsingPipeline;
     private final PdfResponseMapper pdfResponseMapper;
     private final PdfTableResponseMapper pdfTableResponseMapper;
     private final PdfParsedDocumentResponseMapper pdfParsedDocumentResponseMapper;
     private final PdfChunkedDocumentResponseMapper pdfChunkedDocumentResponseMapper;
-    private final PdfContextResponseMapper pdfContextResponseMapper;
 
     public PdfController(
             PdfUploadReader pdfUploadReader,
             PdfParsingPipeline pdfParsingPipeline,
             PdfChunkingPipeline pdfChunkingPipeline,
-            PdfContextPreparationPipeline pdfContextPreparationPipeline,
             PdfTableParsingPipeline pdfTableParsingPipeline,
             PdfResponseMapper pdfResponseMapper,
             PdfTableResponseMapper pdfTableResponseMapper,
             PdfParsedDocumentResponseMapper pdfParsedDocumentResponseMapper,
-            PdfChunkedDocumentResponseMapper pdfChunkedDocumentResponseMapper,
-            PdfContextResponseMapper pdfContextResponseMapper
+            PdfChunkedDocumentResponseMapper pdfChunkedDocumentResponseMapper
     ) {
         this.pdfUploadReader = pdfUploadReader;
         this.pdfParsingPipeline = pdfParsingPipeline;
         this.pdfChunkingPipeline = pdfChunkingPipeline;
-        this.pdfContextPreparationPipeline = pdfContextPreparationPipeline;
         this.pdfTableParsingPipeline = pdfTableParsingPipeline;
         this.pdfResponseMapper = pdfResponseMapper;
         this.pdfTableResponseMapper = pdfTableResponseMapper;
         this.pdfParsedDocumentResponseMapper = pdfParsedDocumentResponseMapper;
         this.pdfChunkedDocumentResponseMapper = pdfChunkedDocumentResponseMapper;
-        this.pdfContextResponseMapper = pdfContextResponseMapper;
     }
 
     @Override
@@ -95,10 +85,4 @@ public class PdfController implements PdfApi {
         return ResponseEntity.ok(pdfChunkedDocumentResponseMapper.toResponse(document));
     }
 
-    @Override
-    public ResponseEntity<PdfContextResponseDto> prepareContext(MultipartFile file, String prompt) {
-        byte[] content = pdfUploadReader.read(file);
-        PreparedPdfContext context = pdfContextPreparationPipeline.prepare(content, prompt);
-        return ResponseEntity.ok(pdfContextResponseMapper.toResponse(context));
-    }
 }

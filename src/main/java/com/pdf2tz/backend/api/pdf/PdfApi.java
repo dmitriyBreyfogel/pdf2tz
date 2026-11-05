@@ -1,7 +1,6 @@
 package com.pdf2tz.backend.api.pdf;
 
 import com.pdf2tz.backend.api.pdf.dto.PdfChunkedDocumentResponseDto;
-import com.pdf2tz.backend.api.pdf.dto.PdfContextResponseDto;
 import com.pdf2tz.backend.api.pdf.dto.PdfParsedDocumentResponseDto;
 import com.pdf2tz.backend.api.pdf.dto.PdfResponseDto;
 import com.pdf2tz.backend.api.pdf.dto.PdfTablesResponseDto;
@@ -97,19 +96,4 @@ public interface PdfApi {
             MultipartFile file
     );
 
-    /**
-     * Ищет релевантные чанки по требованиям пользователя и собирает контекст
-     * с номерами страниц. Вызов LLM здесь не выполняется.
-     *
-     * @param file инструкция в PDF
-     * @param prompt запрос пользователя
-     * @return выбранные источники и ограниченный по токенам preparedPrompt
-     * @throws com.pdf2tz.backend.error.AppException с кодом INVALID_PROMPT,
-     *         если запрос пуст или превышает лимит
-     */
-    @PostMapping("/context")
-    ResponseEntity<PdfContextResponseDto> prepareContext(
-            @RequestParam("file") MultipartFile file,
-            @RequestParam("prompt") String prompt
-    );
 }
