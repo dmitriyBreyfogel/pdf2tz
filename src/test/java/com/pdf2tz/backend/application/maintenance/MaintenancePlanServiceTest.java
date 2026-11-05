@@ -24,12 +24,12 @@ class MaintenancePlanServiceTest {
                 new DocumentChunk(1, SectionPath.root(), PageRange.single(1), "Содержание", 3),
                 new DocumentChunk(2, SectionPath.root(), PageRange.single(14), "Техническое обслуживание: очищайте прибор еженедельно.", 12)
         )));
-        var expected = new ObjectMapper().readTree("{\"sections\":[],\"consumables\":[]}");
+        var expected = new ObjectMapper().readTree("{\"sections\":[{\"name\":\"x\",\"rows\":[{\"inventoryNumber\":\"forbidden\"}]}],\"consumables\":[]}");
         when(client.generate(eq(MaintenanceLlmModel.DEEPSEEK_FLASH), anyString(), anyString())).thenReturn(expected);
 
         var result = new MaintenancePlanService(pipeline, client).generate(new byte[]{1}, "deepseek/deepseek-v4.1-flash");
 
-        assertEquals(expected, result);
+        assertEquals(true, result.path("sections").path(0).path("rows").path(0).path("inventoryNumber").isNull());
         verify(client).generate(eq(MaintenanceLlmModel.DEEPSEEK_FLASH), anyString(), contains("CHUNK 2"));
         verify(client, never()).generate(any(), anyString(), contains("CHUNK 1"));
     }

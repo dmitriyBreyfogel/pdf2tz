@@ -1,6 +1,7 @@
 package com.pdf2tz.backend.application.maintenance;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.pdf2tz.backend.application.maintenance.model.MaintenanceLlmModel;
 import com.pdf2tz.backend.application.pdf.PdfChunkingPipeline;
 import com.pdf2tz.backend.application.pdf.model.chunk.ChunkedDocument;
@@ -34,7 +35,7 @@ public class MaintenancePlanService {
         if (!plan.isObject() || !plan.has("sections") || !plan.has("consumables")) {
             throw AppException.build(ErrorCode.LLM_INVALID_RESPONSE, "Модель вернула JSON, не соответствующий плану ТЗ");
         }
-        return plan;
+        return clearInventoryNumbers(plan);
     }
 
     private String select(List<DocumentChunk> chunks) {
@@ -55,10 +56,20 @@ public class MaintenancePlanService {
 
     private String instruction() {
         return "Ты составляешь проект ТЗ технического обслуживания одного медицинского изделия только по переданным фрагментам инструкции. "
-                + "Не добавляй сведения, которых нет в источнике. Каждая строка — отдельное сочетание вида работ и периодичности. "
-                + "Регистрационный и инвентарный номера заполняй только если они явно найдены, иначе null. "
+                + "Работай строго по предоставленным данным: не выдумывай, не додумывай и не обобщай факты, работы, периодичность, расходники или номера. "
+                + "Если сведения не подтверждены фрагментами инструкции, не включай их в результат. Каждая строка — отдельное сочетание вида работ и периодичности. "
+                + "registrationNumber заполняй только если он явно указан в переданных фрагментах, иначе null. inventoryNumber всегда возвращай null: не ищи, не извлекай и не заполняй инвентарный номер. "
                 + "Расходники не включай в строки ТЗ: верни отдельно и только если необходимость или норма расхода прямо следует из инструкции. "
                 + "Верни JSON с полями sections и consumables. В sections[].rows[] обязательны number, deviceName, maintenanceType, maintenanceWorkDescription, registrationNumber, inventoryNumber, frequency, sourcePages. "
                 + "В consumables[] обязательны name, purpose, relatedRowNumbers, consumptionRate, sourcePages. sourcePages всегда содержит страницы источника.";
+    }
+
+    private JsonNode clearInventoryNumbers(JsonNode plan) {
+        plan.path("sections").forEach(section -> section.path("rows").forEach(row -> {
+            if (row instanceof ObjectNode objectRow) {
+                objectRow.putNull("inventoryNumber");
+            }
+        }));
+        return plan;
     }
 }
