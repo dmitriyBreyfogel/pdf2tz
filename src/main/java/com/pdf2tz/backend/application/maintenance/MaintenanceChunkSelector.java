@@ -14,7 +14,7 @@ public class MaintenanceChunkSelector {
     private final ChunkSemanticSearch semanticSearch;
     private static final List<String> MAINTENANCE = List.of("профилактическ", "техническое обслуживание", "техобслужив", "очистк", "дезинфек", "обработк", "maintenance", "cleaning", "disinfection", "preventive maintenance", "service intervals", "wartung", "reinig", "desinfiz", "sterilisation");
     private static final List<String> CONSUMABLES = List.of("расходн", "принадлежност", "аксессуар", "consumable", "supplies", "verbrauchsmaterial");
-    private static final List<String> NEGATIVE = List.of("содержание", "безопасност", "предупрежден", "эксплуатац", "установк", "описание", "safety", "safe handling", "s a fe", "operating");
+    private static final List<String> NEGATIVE = List.of("содержание", "безопасност", "предупрежден", "эксплуатац", "установк", "описание", "введение", "safety", "safe handling", "s a fe", "operating", "introduction", "introducing", "overview", "einführung", "übersicht");
     private static final List<String> SERVICE_ACTIONS = List.of("очист", "очищ", "дезинф", "стерилиз", "обработ", "провер", "замен", "смаз", "калибр", "inspect", "clean", "disinfect", "steriliz", "replace", "calibrat", "reinig", "desinfiz");
     private static final List<String> CARE_ACTIONS = List.of("очист", "очищ", "дезинф", "стерилиз", "обработ", "clean", "disinfect", "steriliz", "reinig", "desinfiz");
     private static final List<String> DIRECT_MAINTENANCE = List.of("техническое обслуживание", "техобслужив", "preventive maintenance", "technical maintenance", "service interval");
@@ -80,12 +80,11 @@ public class MaintenanceChunkSelector {
         boolean serviceAction = any(content, SERVICE_ACTIONS);
         boolean careAction = any(content, CARE_ACTIONS);
         boolean frequency = containsFrequency(content);
-        boolean table = content.contains("[table");
         boolean strongContent = directMaintenance && serviceAction
-                || careAction && (headingSignals > 0 || frequency || table);
+                || careAction && (headingSignals > 0 || frequency);
         if (headingSignals == 0 && !strongContent) return 0;
         if (directMaintenance && serviceAction) score += 45;
-        if (careAction && (headingSignals > 0 || frequency || table)) score += 35;
+        if (careAction && (headingSignals > 0 || frequency)) score += 35;
         return score;
     }
     private int matches(String text, List<String> terms) { return (int) terms.stream().filter(text::contains).count(); }

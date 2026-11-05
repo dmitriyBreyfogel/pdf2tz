@@ -32,12 +32,13 @@ public class OnnxMultilingualChunkSemanticSearch implements ChunkSemanticSearch 
     private static final List<String> QUERIES = List.of(
             "medical device technical maintenance periodic inspection preventive service",
             "medical device cleaning disinfection sterilization maintenance procedure",
-            "medical device maintenance consumables cleaning agents replacement parts"
+            "medical device periodic maintenance schedule inspection replacement calibration"
     );
     private static final List<String> CONTRAST_QUERIES = List.of(
             "medical device overview introduction intended use technical specifications",
             "medical device safety warnings hazards contraindications emergency",
-            "medical device installation operation troubleshooting error codes"
+            "medical device installation operation troubleshooting error codes",
+            "medical device ordering accessories disposable sets replacement components"
     );
 
     private final EmbeddingProperties properties;

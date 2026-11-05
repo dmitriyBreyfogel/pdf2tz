@@ -63,6 +63,18 @@ class MaintenanceChunkSelectionInstructionRegressionTest {
                 .anyMatch(heading -> heading.text().contains("Периодичность технического обслуживания"))));
     }
 
+    @Test
+    void retainsEnglishCleaningProcedureWithoutIntroductionOrErrorCodes() throws Exception {
+        List<DocumentChunk> selected = selector.select(chunkingPipeline.chunk(content("1373694.pdf")).chunks());
+
+        assertTrue(selected.stream().anyMatch(chunk -> chunk.sectionPath().headings().stream()
+                .anyMatch(heading -> heading.text().contains("DESCRIBING SPECIFIC CLEANING PROCEDURES"))));
+        assertTrue(selected.stream().noneMatch(chunk -> chunk.sectionPath().headings().stream()
+                .anyMatch(heading -> heading.text().contains("INTRODUCING THE CELL SAVER 5+ SYSTEM")
+                        || heading.text().contains("DESCRIBING CELL SAVER 5+ ERROR CODES"))),
+                () -> selected.stream().map(chunk -> chunk.chunkNumber() + ":" + chunk.sectionPath().headings()).toList().toString());
+    }
+
     private byte[] content(String name) throws Exception {
         return Files.readAllBytes(Path.of(System.getenv("PDF_INSTRUCTION_DIRECTORY"), name));
     }
