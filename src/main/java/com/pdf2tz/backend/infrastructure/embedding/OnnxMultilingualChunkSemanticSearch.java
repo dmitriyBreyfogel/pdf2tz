@@ -34,11 +34,17 @@ public class OnnxMultilingualChunkSemanticSearch implements ChunkSemanticSearch 
             "medical device cleaning disinfection sterilization maintenance procedure",
             "medical device maintenance consumables cleaning agents replacement parts"
     );
+    private static final List<String> CONTRAST_QUERIES = List.of(
+            "medical device overview introduction intended use technical specifications",
+            "medical device safety warnings hazards contraindications emergency",
+            "medical device installation operation troubleshooting error codes"
+    );
 
     private final EmbeddingProperties properties;
     private final OrtSession session;
     private final HuggingFaceTokenizer tokenizer;
     private final List<float[]> queryVectors;
+    private final List<float[]> contrastQueryVectors;
 
     public OnnxMultilingualChunkSemanticSearch(EmbeddingProperties properties) {
         this.properties = properties;
@@ -48,6 +54,7 @@ public class OnnxMultilingualChunkSemanticSearch implements ChunkSemanticSearch 
             this.tokenizer = HuggingFaceTokenizer.newInstance(modelDirectory);
             this.session = OrtEnvironment.getEnvironment().createSession(modelDirectory.resolve("model.onnx").toString(), new OrtSession.SessionOptions());
             this.queryVectors = embedBatch(QUERIES);
+            this.contrastQueryVectors = embedBatch(CONTRAST_QUERIES);
         } catch (OrtException | IOException exception) {
             throw new IllegalStateException("Не удалось загрузить локальную embedding-модель из " + modelDirectory, exception);
         }
@@ -66,7 +73,10 @@ public class OnnxMultilingualChunkSemanticSearch implements ChunkSemanticSearch 
             DocumentChunk chunk = chunks.get(index);
             float[] vector = vectors.get(index);
             double similarity = queryVectors.stream().mapToDouble(query -> cosine(query, vector)).max().orElse(0);
-            if (similarity >= properties.similarityThreshold()) candidates.add(new ScoredChunk(chunk.chunkNumber(), similarity));
+            double contrast = contrastQueryVectors.stream().mapToDouble(query -> cosine(query, vector)).max().orElse(0);
+            if (similarity >= properties.similarityThreshold() && similarity - contrast >= properties.contrastMargin()) {
+                candidates.add(new ScoredChunk(chunk.chunkNumber(), similarity));
+            }
         }
         return candidates.stream().sorted(Comparator.comparingDouble(ScoredChunk::similarity).reversed())
                 .limit(properties.maxCandidates()).map(ScoredChunk::chunkNumber).collect(Collectors.toSet());
@@ -121,11 +131,12 @@ public class OnnxMultilingualChunkSemanticSearch implements ChunkSemanticSearch 
     }
 
     private static String compact(String content) {
-        // The serialized section path is at the beginning. Keeping both ends preserves
-        // the section meaning and table conclusions while making CPU inference practical.
-        int limit = 1_800;
+        // This is retrieval metadata only: the complete chunk is retained for the LLM.
+        // The serialized section path is at the beginning, while table notes often end a
+        // chunk. Keeping both allows CPU inference to stay bounded for very large manuals.
+        int limit = 420;
         if (content.length() <= limit) return content;
-        return content.substring(0, 1_200) + "\n…\n" + content.substring(content.length() - 600);
+        return content.substring(0, 320) + "\n…\n" + content.substring(content.length() - 90);
     }
 
     private static void requireModelFiles(Path modelDirectory) {

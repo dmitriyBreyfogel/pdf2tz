@@ -9,6 +9,7 @@ public class EmbeddingProperties {
     private boolean enabled;
     private String modelPath = "";
     private double similarityThreshold = 0.48;
+    private double contrastMargin = 0.02;
     private int maxCandidates = 36;
     private int batchSize = 8;
 
@@ -18,6 +19,8 @@ public class EmbeddingProperties {
     public void setModelPath(String modelPath) { this.modelPath = modelPath; }
     public double similarityThreshold() { return similarityThreshold; }
     public void setSimilarityThreshold(double similarityThreshold) { this.similarityThreshold = similarityThreshold; }
+    public double contrastMargin() { return contrastMargin; }
+    public void setContrastMargin(double contrastMargin) { this.contrastMargin = contrastMargin; }
     public int maxCandidates() { return maxCandidates; }
     public void setMaxCandidates(int maxCandidates) { this.maxCandidates = maxCandidates; }
     public int batchSize() { return batchSize; }
