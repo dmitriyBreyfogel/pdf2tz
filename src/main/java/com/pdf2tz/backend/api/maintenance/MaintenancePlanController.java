@@ -13,11 +13,10 @@ import org.springframework.web.multipart.MultipartFile;
 public class MaintenancePlanController implements MaintenancePlanApi {
     private final PdfUploadReader uploadReader;
     private final MaintenancePlanService service;
-    private final ObjectMapper mapper;
-    public MaintenancePlanController(PdfUploadReader uploadReader, MaintenancePlanService service, ObjectMapper mapper) {
+    private final ObjectMapper mapper = new ObjectMapper();
+    public MaintenancePlanController(PdfUploadReader uploadReader, MaintenancePlanService service) {
         this.uploadReader = uploadReader;
         this.service = service;
-        this.mapper = mapper;
     }
     @Override public ResponseEntity<String> generate(MultipartFile file, String modelCode) {
         ObjectNode response = mapper.createObjectNode();

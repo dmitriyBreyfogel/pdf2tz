@@ -21,7 +21,7 @@ class MaintenancePlanControllerTest {
                 {"sections":[],"consumables":[]}
                 """));
 
-        var response = new MaintenancePlanController(uploadReader, service, new ObjectMapper())
+        var response = new MaintenancePlanController(uploadReader, service)
                 .generate(new MockMultipartFile("file", "manual.pdf", "application/pdf", new byte[]{1}), "model");
 
         var json = new ObjectMapper().readTree(response.getBody());
