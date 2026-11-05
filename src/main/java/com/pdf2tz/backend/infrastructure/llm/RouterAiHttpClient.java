@@ -29,8 +29,9 @@ public class RouterAiHttpClient implements RouterAiClient {
             schema.set("schema", maintenancePlanSchema());
         }
         try {
-            JsonNode response = RestClient.builder().baseUrl(properties.baseUrl()).defaultHeader("Authorization", "Bearer " + properties.apiKey()).build()
-                    .post().uri("/chat/completions").contentType(MediaType.APPLICATION_JSON).body(mapper.writeValueAsString(body)).retrieve().body(JsonNode.class);
+            String rawResponse = RestClient.builder().baseUrl(properties.baseUrl()).defaultHeader("Authorization", "Bearer " + properties.apiKey()).build()
+                    .post().uri("/chat/completions").contentType(MediaType.APPLICATION_JSON).body(mapper.writeValueAsString(body)).retrieve().body(String.class);
+            JsonNode response = mapper.readTree(rawResponse);
             String content = response.path("choices").path(0).path("message").path("content").asText();
             return mapper.readTree(jsonContent(content));
         } catch (AppException ex) { throw ex; } catch (Exception ex) {
