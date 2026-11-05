@@ -10,7 +10,6 @@ import com.pdf2tz.backend.error.ErrorCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 
 @Component
 public class RouterAiHttpClient implements RouterAiClient {
@@ -20,12 +19,31 @@ public class RouterAiHttpClient implements RouterAiClient {
         if (properties.apiKey() == null || properties.apiKey().isBlank()) throw AppException.build(ErrorCode.LLM_NOT_CONFIGURED, "Не задана переменная окружения ROUTERAI_API_KEY");
         ObjectNode body = mapper.createObjectNode(); body.put("model", model.routerAiId()); body.put("temperature", 0); body.put("max_tokens", 8000);
         var messages = body.putArray("messages"); messages.addObject().put("role", "system").put("content", instruction); messages.addObject().put("role", "user").put("content", context);
-        if (model.schemaEnforced()) body.putObject("response_format").put("type", "json_object");
+        if (model.schemaEnforced()) {
+            ObjectNode format = body.putObject("response_format");
+            format.put("type", "json_schema");
+            ObjectNode schema = format.putObject("json_schema");
+            schema.put("name", "maintenance_plan");
+            schema.put("strict", true);
+            schema.set("schema", maintenancePlanSchema());
+        }
         try {
             JsonNode response = RestClient.builder().baseUrl(properties.baseUrl()).defaultHeader("Authorization", "Bearer " + properties.apiKey()).build()
                     .post().uri("/chat/completions").contentType(MediaType.APPLICATION_JSON).body(body).retrieve().body(JsonNode.class);
             String content = response.path("choices").path(0).path("message").path("content").asText();
             return mapper.readTree(content);
         } catch (AppException ex) { throw ex; } catch (Exception ex) { throw AppException.build(ErrorCode.LLM_REQUEST_FAILED, "Не удалось получить ответ RouterAI"); }
+    }
+
+    private JsonNode maintenancePlanSchema() {
+        try {
+            return mapper.readTree("""
+                    {"type":"object","additionalProperties":false,"required":["sections","consumables"],"properties":{
+                    "sections":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["name","rows"],"properties":{"name":{"type":"string"},"rows":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["number","deviceName","maintenanceType","maintenanceWorkDescription","registrationNumber","inventoryNumber","frequency","sourcePages"],"properties":{"number":{"type":"integer"},"deviceName":{"type":"string"},"maintenanceType":{"type":"string"},"maintenanceWorkDescription":{"type":"array","items":{"type":"string"}},"registrationNumber":{"type":["string","null"]},"inventoryNumber":{"type":["string","null"]},"frequency":{"type":"string"},"sourcePages":{"type":"array","items":{"type":"integer"}}}}}}}},
+                    "consumables":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["name","purpose","relatedRowNumbers","consumptionRate","sourcePages"],"properties":{"name":{"type":"string"},"purpose":{"type":"string"},"relatedRowNumbers":{"type":"array","items":{"type":"integer"}},"consumptionRate":{"type":["string","null"]},"sourcePages":{"type":"array","items":{"type":"integer"}}}}}}}
+                    """);
+        } catch (Exception ex) {
+            throw new IllegalStateException("Maintenance plan JSON schema is invalid", ex);
+        }
     }
 }
