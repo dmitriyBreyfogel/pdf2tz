@@ -1,6 +1,5 @@
 package com.pdf2tz.backend.api.maintenance;
 
-import com.pdf2tz.backend.api.maintenance.dto.MaintenancePlanResponseDto;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -10,7 +9,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/v1/maintenance")
 public interface MaintenancePlanApi {
     @PostMapping("/plan")
-    ResponseEntity<MaintenancePlanResponseDto> generate(
+    ResponseEntity<String> generate(
             @RequestParam("file") MultipartFile file,
             @RequestParam("modelCode") String modelCode
     );
