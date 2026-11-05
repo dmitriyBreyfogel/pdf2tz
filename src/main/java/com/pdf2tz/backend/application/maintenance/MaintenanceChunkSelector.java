@@ -16,6 +16,7 @@ public class MaintenanceChunkSelector {
     private static final List<String> SERVICE_ACTIONS = List.of("очист", "дезинф", "стерилиз", "обработ", "провер", "замен", "смаз", "калибр", "inspect", "clean", "disinfect", "steriliz", "replace", "calibrat");
     private static final List<String> CARE_ACTIONS = List.of("очист", "дезинф", "стерилиз", "обработ", "clean", "disinfect", "steriliz");
     private static final List<String> DIRECT_MAINTENANCE = List.of("техническое обслуживание", "техобслужив", "preventive maintenance", "technical maintenance", "service interval");
+    private static final List<String> NEGATED_MAINTENANCE = List.of("не требует технического обслуживания", "no maintenance", "maintenance-free");
 
     public List<DocumentChunk> select(List<DocumentChunk> chunks) {
         List<DocumentChunk> ranked = chunks.stream().filter(c -> score(c) > 0)
@@ -39,8 +40,10 @@ public class MaintenanceChunkSelector {
     private int score(DocumentChunk chunk) {
         String headings = headings(chunk), content = chunk.content().toLowerCase(Locale.ROOT);
         if (content.contains("содержание") || headings.contains("содержание") || content.matches("(?s).*(?:\\.\\s*){6,}.*")) return -1000;
-        int headingSignals = matches(headings, MAINTENANCE) + matches(headings, CONSUMABLES);
-        if (headingSignals == 0 && any(headings, NEGATIVE)) return -1000;
+        int maintenanceHeadings = matches(headings, MAINTENANCE);
+        int consumableHeadings = matches(headings, CONSUMABLES);
+        int headingSignals = maintenanceHeadings + consumableHeadings;
+        if ((any(headings, NEGATIVE) && maintenanceHeadings == 0) || any(content, NEGATED_MAINTENANCE)) return -1000;
 
         int score = matches(headings, MAINTENANCE) * 100 + matches(headings, CONSUMABLES) * 70;
         boolean directMaintenance = any(content, DIRECT_MAINTENANCE);
@@ -49,14 +52,10 @@ public class MaintenanceChunkSelector {
         boolean frequency = containsFrequency(content);
         boolean table = content.contains("[table");
         boolean strongContent = directMaintenance && serviceAction
-                || careAction && (headingSignals > 0 || frequency || table)
-                || serviceAction && frequency
-                || any(content, CONSUMABLES) && serviceAction;
+                || careAction && (headingSignals > 0 || frequency || table);
         if (headingSignals == 0 && !strongContent) return 0;
         if (directMaintenance && serviceAction) score += 45;
         if (careAction && (headingSignals > 0 || frequency || table)) score += 35;
-        if (serviceAction && frequency) score += 30;
-        if (any(content, CONSUMABLES) && serviceAction) score += 25;
         return score;
     }
     private boolean maintenanceHeading(DocumentChunk chunk) { return matches(headings(chunk), MAINTENANCE) + matches(headings(chunk), CONSUMABLES) > 0; }
