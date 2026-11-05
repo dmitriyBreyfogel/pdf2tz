@@ -10,6 +10,7 @@ import com.pdf2tz.backend.application.pdf.model.structure.SectionPath;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.*;
@@ -27,7 +28,7 @@ class MaintenancePlanServiceTest {
         var expected = new ObjectMapper().readTree("{\"sections\":[{\"name\":\"x\",\"rows\":[{\"inventoryNumber\":\"forbidden\"}]}],\"consumables\":[]}");
         when(client.generate(eq(MaintenanceLlmModel.DEEPSEEK_FLASH), anyString(), anyString())).thenReturn(expected);
 
-        var result = new MaintenancePlanService(pipeline, client, new MaintenanceChunkSelector()).generate(new byte[]{1}, "deepseek/deepseek-v4.1-flash");
+        var result = new MaintenancePlanService(pipeline, client, new MaintenanceChunkSelector(chunks -> Set.of())).generate(new byte[]{1}, "deepseek/deepseek-v4.1-flash");
 
         assertEquals(true, result.path("sections").path(0).path("rows").path(0).path("inventoryNumber").isNull());
         verify(client).generate(eq(MaintenanceLlmModel.DEEPSEEK_FLASH), anyString(), contains("CHUNK 2"));

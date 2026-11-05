@@ -10,6 +10,7 @@ import java.util.Locale;
 /** Selects maintenance evidence from structural headings and document content. */
 @Component
 public class MaintenanceChunkSelector {
+    private final ChunkSemanticSearch semanticSearch;
     private static final List<String> MAINTENANCE = List.of("профилактическ", "техническое обслуживание", "техобслужив", "очистк", "дезинфек", "обработк", "maintenance", "cleaning", "disinfection", "preventive maintenance", "service intervals", "wartung", "reinig", "desinfiz", "sterilisation");
     private static final List<String> CONSUMABLES = List.of("расходн", "принадлежност", "аксессуар", "consumable", "supplies", "verbrauchsmaterial");
     private static final List<String> NEGATIVE = List.of("содержание", "безопасност", "предупрежден", "эксплуатац", "установк", "описание", "safety", "safe handling", "s a fe", "operating");
@@ -18,11 +19,16 @@ public class MaintenanceChunkSelector {
     private static final List<String> DIRECT_MAINTENANCE = List.of("техническое обслуживание", "техобслужив", "preventive maintenance", "technical maintenance", "service interval");
     private static final List<String> NEGATED_MAINTENANCE = List.of("не требует технического обслуживания", "no maintenance", "maintenance-free");
 
+    public MaintenanceChunkSelector(ChunkSemanticSearch semanticSearch) {
+        this.semanticSearch = semanticSearch;
+    }
+
     public List<DocumentChunk> select(List<DocumentChunk> chunks) {
+        var relevantNumbers = new LinkedHashSet<Integer>(semanticSearch.findRelevantChunkNumbers(chunks));
         List<DocumentChunk> ranked = chunks.stream().filter(c -> score(c) > 0)
                 .sorted(Comparator.comparingInt(this::score).reversed().thenComparingInt(DocumentChunk::chunkNumber)).toList();
-        if (ranked.isEmpty()) return chunks.stream().limit(1).toList();
-        var numbers = new LinkedHashSet<Integer>();
+        var numbers = new LinkedHashSet<Integer>(relevantNumbers);
+        if (ranked.isEmpty() && numbers.isEmpty()) return chunks.stream().limit(1).toList();
         ranked.forEach(chunk -> {
             numbers.add(chunk.chunkNumber());
             addNeighbour(chunks, numbers, chunk, chunk.chunkNumber() - 1);
