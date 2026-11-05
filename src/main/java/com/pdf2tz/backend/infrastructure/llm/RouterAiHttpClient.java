@@ -30,10 +30,13 @@ public class RouterAiHttpClient implements RouterAiClient {
         }
         try {
             JsonNode response = RestClient.builder().baseUrl(properties.baseUrl()).defaultHeader("Authorization", "Bearer " + properties.apiKey()).build()
-                    .post().uri("/chat/completions").contentType(MediaType.APPLICATION_JSON).body(body).retrieve().body(JsonNode.class);
+                    .post().uri("/chat/completions").contentType(MediaType.APPLICATION_JSON).body(mapper.writeValueAsString(body)).retrieve().body(JsonNode.class);
             String content = response.path("choices").path(0).path("message").path("content").asText();
             return mapper.readTree(jsonContent(content));
-        } catch (AppException ex) { throw ex; } catch (Exception ex) { throw AppException.build(ErrorCode.LLM_REQUEST_FAILED, "Не удалось получить ответ RouterAI"); }
+        } catch (AppException ex) { throw ex; } catch (Exception ex) {
+            throw AppException.build(ErrorCode.LLM_REQUEST_FAILED,
+                    "Не удалось получить ответ RouterAI: " + ex.getClass().getSimpleName() + ": " + ex.getMessage());
+        }
     }
 
     /** Some providers return JSON in a Markdown fence despite an explicit JSON instruction. */
