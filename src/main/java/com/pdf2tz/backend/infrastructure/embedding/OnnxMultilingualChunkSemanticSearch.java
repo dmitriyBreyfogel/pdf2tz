@@ -121,9 +121,11 @@ public class OnnxMultilingualChunkSemanticSearch implements ChunkSemanticSearch 
     }
 
     private static String compact(String content) {
-        int limit = 6_000;
+        // The serialized section path is at the beginning. Keeping both ends preserves
+        // the section meaning and table conclusions while making CPU inference practical.
+        int limit = 1_800;
         if (content.length() <= limit) return content;
-        return content.substring(0, limit / 2) + "\n…\n" + content.substring(content.length() - limit / 2);
+        return content.substring(0, 1_200) + "\n…\n" + content.substring(content.length() - 600);
     }
 
     private static void requireModelFiles(Path modelDirectory) {
