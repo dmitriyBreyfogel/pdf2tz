@@ -22,6 +22,14 @@ class MaintenanceChunkSelectorTest {
         assertEquals(List.of(1, 2), selected.stream().map(DocumentChunk::chunkNumber).toList());
     }
 
+    @Test
+    void rejectsSemanticCandidateFromSafetySection() {
+        MaintenanceChunkSelector selector = new MaintenanceChunkSelector(chunks -> Set.of(2));
+        DocumentChunk safety = new DocumentChunk(2, new SectionPath(List.of(new com.pdf2tz.backend.application.pdf.model.structure.SectionHeading(1, "Safety instructions", 2))), PageRange.single(2), "Inspect before use", 10);
+
+        assertEquals(List.of(1), selector.select(List.of(chunk(1, "Device manual"), safety)).stream().map(DocumentChunk::chunkNumber).toList());
+    }
+
     private DocumentChunk chunk(int number, String content) {
         return new DocumentChunk(number, SectionPath.root(), PageRange.single(number), content, 10);
     }

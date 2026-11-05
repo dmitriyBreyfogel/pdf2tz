@@ -25,6 +25,8 @@ public class MaintenanceChunkSelector {
 
     public List<DocumentChunk> select(List<DocumentChunk> chunks) {
         var relevantNumbers = new LinkedHashSet<Integer>(semanticSearch.findRelevantChunkNumbers(chunks));
+        relevantNumbers.removeIf(number -> chunks.stream().filter(chunk -> chunk.chunkNumber() == number)
+                .anyMatch(this::excluded));
         List<DocumentChunk> ranked = chunks.stream().filter(c -> score(c) > 0)
                 .sorted(Comparator.comparingInt(this::score).reversed().thenComparingInt(DocumentChunk::chunkNumber)).toList();
         var numbers = new LinkedHashSet<Integer>(relevantNumbers);
@@ -45,10 +47,9 @@ public class MaintenanceChunkSelector {
     }
     private int score(DocumentChunk chunk) {
         String headings = headings(chunk), content = chunk.content().toLowerCase(Locale.ROOT);
-        if (isContents(chunk)) return -1000;
+        if (excluded(chunk)) return -1000;
         int consumableHeadings = matches(headings, CONSUMABLES);
         int headingSignals = matches(headings, MAINTENANCE) + consumableHeadings;
-        if (excludedByHeadingContext(chunk) || any(content, NEGATED_MAINTENANCE)) return -1000;
 
         int score = matches(headings, MAINTENANCE) * 100 + matches(headings, CONSUMABLES) * 70;
         boolean directMaintenance = any(content, DIRECT_MAINTENANCE);
@@ -73,6 +74,10 @@ public class MaintenanceChunkSelector {
         String headings = headings(chunk);
         String content = chunk.content().toLowerCase(Locale.ROOT);
         return content.contains("содержание") || headings.contains("содержание") || content.matches("(?s).*(?:\\.\\s*){6,}.*");
+    }
+    private boolean excluded(DocumentChunk chunk) {
+        return isContents(chunk) || excludedByHeadingContext(chunk)
+                || any(chunk.content().toLowerCase(Locale.ROOT), NEGATED_MAINTENANCE);
     }
     private boolean excludedByHeadingContext(DocumentChunk chunk) {
         List<String> headings = chunk.sectionPath().headings().stream()
