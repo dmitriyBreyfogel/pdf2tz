@@ -27,7 +27,7 @@ class MaintenancePlanServiceTest {
         var expected = new ObjectMapper().readTree("{\"sections\":[{\"name\":\"x\",\"rows\":[{\"inventoryNumber\":\"forbidden\"}]}],\"consumables\":[]}");
         when(client.generate(eq(MaintenanceLlmModel.DEEPSEEK_FLASH), anyString(), anyString())).thenReturn(expected);
 
-        var result = new MaintenancePlanService(pipeline, client).generate(new byte[]{1}, "deepseek/deepseek-v4.1-flash");
+        var result = new MaintenancePlanService(pipeline, client, new MaintenanceChunkSelector()).generate(new byte[]{1}, "deepseek/deepseek-v4.1-flash");
 
         assertEquals(true, result.path("sections").path(0).path("rows").path(0).path("inventoryNumber").isNull());
         verify(client).generate(eq(MaintenanceLlmModel.DEEPSEEK_FLASH), anyString(), contains("CHUNK 2"));

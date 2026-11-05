@@ -10,19 +10,18 @@ import com.pdf2tz.backend.error.AppException;
 import com.pdf2tz.backend.error.ErrorCode;
 import org.springframework.stereotype.Service;
 
-import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 
 @Service
 public class MaintenancePlanService {
-    private static final List<String> MARKERS = List.of("техническ", "обслужив", "периодич", "очист", "дезинф", "провер", "замен", "maintenance", "clean", "inspection", "service");
     private final PdfChunkingPipeline chunkingPipeline;
     private final RouterAiClient routerAiClient;
+    private final MaintenanceChunkSelector chunkSelector;
 
-    public MaintenancePlanService(PdfChunkingPipeline chunkingPipeline, RouterAiClient routerAiClient) {
+    public MaintenancePlanService(PdfChunkingPipeline chunkingPipeline, RouterAiClient routerAiClient, MaintenanceChunkSelector chunkSelector) {
         this.chunkingPipeline = chunkingPipeline;
         this.routerAiClient = routerAiClient;
+        this.chunkSelector = chunkSelector;
     }
 
     public JsonNode generate(byte[] pdf, String modelCode) {
@@ -39,19 +38,10 @@ public class MaintenancePlanService {
     }
 
     private String select(List<DocumentChunk> chunks) {
-        List<DocumentChunk> relevant = chunks.stream()
-                .sorted(Comparator.<DocumentChunk>comparingInt(chunk -> score(chunk.content())).reversed()
-                        .thenComparingInt(DocumentChunk::chunkNumber))
-                .filter(chunk -> score(chunk.content()) > 0).limit(18).sorted(Comparator.comparingInt(DocumentChunk::chunkNumber)).toList();
-        List<DocumentChunk> selected = relevant.isEmpty() ? chunks.stream().limit(18).toList() : relevant;
+        List<DocumentChunk> selected = chunkSelector.select(chunks);
         return selected.stream().map(chunk -> "[CHUNK " + chunk.chunkNumber() + "; PAGES "
                 + chunk.pageRange().startPageNumber() + "-" + chunk.pageRange().endPageNumber() + "]\n" + chunk.content())
                 .reduce((left, right) -> left + "\n\n" + right).orElseThrow();
-    }
-
-    private int score(String content) {
-        String lower = content.toLowerCase(Locale.ROOT);
-        return (int) MARKERS.stream().filter(lower::contains).count();
     }
 
     private String instruction() {
