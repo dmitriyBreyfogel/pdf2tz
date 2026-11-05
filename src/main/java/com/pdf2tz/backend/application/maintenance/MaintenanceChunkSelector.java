@@ -40,10 +40,9 @@ public class MaintenanceChunkSelector {
     private int score(DocumentChunk chunk) {
         String headings = headings(chunk), content = chunk.content().toLowerCase(Locale.ROOT);
         if (content.contains("содержание") || headings.contains("содержание") || content.matches("(?s).*(?:\\.\\s*){6,}.*")) return -1000;
-        int maintenanceHeadings = matches(headings, MAINTENANCE);
         int consumableHeadings = matches(headings, CONSUMABLES);
-        int headingSignals = maintenanceHeadings + consumableHeadings;
-        if ((any(headings, NEGATIVE) && maintenanceHeadings == 0) || any(content, NEGATED_MAINTENANCE)) return -1000;
+        int headingSignals = matches(headings, MAINTENANCE) + consumableHeadings;
+        if (any(headings, NEGATIVE) || any(content, NEGATED_MAINTENANCE)) return -1000;
 
         int score = matches(headings, MAINTENANCE) * 100 + matches(headings, CONSUMABLES) * 70;
         boolean directMaintenance = any(content, DIRECT_MAINTENANCE);
