@@ -30,13 +30,13 @@ class MaintenancePlanServiceTest {
         var expected = new ObjectMapper().readTree("""
                 {"sections":[{"name":"x","rows":[{"number":1,"deviceName":"Прибор","maintenanceType":"Очистка","maintenanceWorkDescription":["Очистить."],"registrationNumber":null,"inventoryNumber":"forbidden","frequency":"Еженедельно","sourcePages":[14]}]}],"consumables":[]}
                 """);
-        when(client.generate(eq(MaintenanceLlmModel.DEEPSEEK_FLASH), anyString(), anyString())).thenReturn(expected);
+        when(client.generate(eq(MaintenanceLlmModel.GPT_LUNA), anyString(), anyString())).thenReturn(expected);
 
-        var result = new MaintenancePlanService(pipeline, client, new MaintenanceChunkSelector(chunks -> Set.of()), new MaintenancePlanResponseNormalizer(), new MaintenancePlanDiagnosticsProperties()).generate(new byte[]{1}, "deepseek/deepseek-v4.1-flash");
+        var result = new MaintenancePlanService(pipeline, client, new MaintenanceChunkSelector(chunks -> Set.of()), new MaintenancePlanResponseNormalizer(), new MaintenancePlanDiagnosticsProperties()).generate(new byte[]{1}, "openai/gpt-5.6-luna");
 
         assertEquals(true, result.path("sections").path(0).path("rows").path(0).path("inventoryNumber").isNull());
         var instruction = ArgumentCaptor.forClass(String.class);
-        verify(client).generate(eq(MaintenanceLlmModel.DEEPSEEK_FLASH), instruction.capture(), contains("CHUNK 2"));
+        verify(client).generate(eq(MaintenanceLlmModel.GPT_LUNA), instruction.capture(), contains("CHUNK 2"));
         verify(client, never()).generate(any(), anyString(), contains("CHUNK 1"));
         assertTrue(instruction.getValue().contains("Корневой объект содержит РОВНО два поля: sections и consumables"));
         assertTrue(instruction.getValue().contains("Не отправляй частичный JSON"));

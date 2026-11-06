@@ -11,9 +11,4 @@ class MaintenanceLlmModelTest {
             assertEquals(20000, model.maxCompletionTokens());
         }
     }
-
-    @Test
-    void reservesLowReasoningEffortForDeepSeekPlanGeneration() {
-        assertEquals("low", MaintenanceLlmModel.DEEPSEEK_FLASH.reasoningEffort());
-    }
 }
