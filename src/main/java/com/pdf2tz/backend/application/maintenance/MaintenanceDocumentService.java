@@ -14,10 +14,12 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTOnOff;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTblBorders;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTblGrid;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTrPr;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTVMerge;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTcPr;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTcMar;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTblWidth;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STBorder;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STMerge;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblLayoutType;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblWidth;
 import org.springframework.stereotype.Service;
@@ -37,16 +39,19 @@ public class MaintenanceDocumentService {
         try (XWPFDocument document = new XWPFDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             configurePage(document);
             String deviceName = deviceName(plan);
+            String registrationNumber = registrationNumber(plan);
             paragraph(document, "Перечень услуг по техническому обслуживанию медицинского изделия: " + deviceName,
                     ParagraphAlignment.CENTER, 10, true);
             XWPFTable table = document.createTable(1, WIDTHS.length);
             configureTable(table);
             writeHeader(table.getRow(0));
+            int firstWorkRow = table.getNumberOfRows();
             for (JsonNode section : plan.path("sections")) {
                 for (JsonNode row : section.path("rows")) {
-                    writeWork(table, row, deviceName);
+                    writeWork(table, row, deviceName, registrationNumber);
                 }
             }
+            mergeCommonDeviceColumns(table, firstWorkRow);
             document.write(output);
             return output.toByteArray();
         } catch (Exception exception) {
@@ -84,12 +89,12 @@ public class MaintenanceDocumentService {
         for (int index = 0; index < headings.length; index++) cell(row.getCell(index), headings[index], 8, true, ParagraphAlignment.CENTER);
     }
 
-    private void writeWork(XWPFTable table, JsonNode work, String deviceName) {
+    private void writeWork(XWPFTable table, JsonNode work, String deviceName, String registrationNumber) {
         XWPFTableRow row = table.createRow();
         cell(row.getCell(0), work.path("number").asText(), 8, false, ParagraphAlignment.CENTER);
         cell(row.getCell(1), deviceName, 8, false, ParagraphAlignment.LEFT);
         workCell(row.getCell(2), work);
-        cell(row.getCell(3), work.path("registrationNumber").isNull() ? "" : work.path("registrationNumber").asText(), 8, false, ParagraphAlignment.CENTER);
+        cell(row.getCell(3), registrationNumber, 8, false, ParagraphAlignment.CENTER);
         cell(row.getCell(4), "", 8, false, ParagraphAlignment.CENTER);
         cell(row.getCell(5), work.path("frequency").asText(), 8, false, ParagraphAlignment.CENTER);
     }
@@ -142,6 +147,33 @@ public class MaintenanceDocumentService {
             }
         }
         throw new IllegalArgumentException("План ТЗ не содержит наименование медицинского изделия");
+    }
+
+    private String registrationNumber(JsonNode plan) {
+        for (JsonNode section : plan.path("sections")) {
+            for (JsonNode row : section.path("rows")) {
+                JsonNode registrationNumber = row.path("registrationNumber");
+                if (!registrationNumber.isNull() && !registrationNumber.asText().isBlank()) {
+                    return registrationNumber.asText().trim();
+                }
+            }
+        }
+        return "";
+    }
+
+    private void mergeCommonDeviceColumns(XWPFTable table, int firstWorkRow) {
+        int lastWorkRow = table.getNumberOfRows() - 1;
+        if (lastWorkRow < firstWorkRow) {
+            return;
+        }
+        for (int column : new int[]{1, 3, 4}) {
+            for (int row = firstWorkRow; row <= lastWorkRow; row++) {
+                XWPFTableCell cell = table.getRow(row).getCell(column);
+                CTTcPr properties = cell.getCTTc().isSetTcPr() ? cell.getCTTc().getTcPr() : cell.getCTTc().addNewTcPr();
+                CTVMerge merge = properties.isSetVMerge() ? properties.getVMerge() : properties.addNewVMerge();
+                merge.setVal(row == firstWorkRow ? STMerge.RESTART : STMerge.CONTINUE);
+            }
+        }
     }
 
     private void applyMargins(XWPFTableCell cell) {

@@ -2,6 +2,7 @@ package com.pdf2tz.backend.application.maintenance;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STMerge;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -24,7 +25,7 @@ class MaintenanceDocumentServiceTest {
             assertEquals(3, table.getNumberOfRows());
             assertEquals("№ п.п.", table.getRow(0).getCell(0).getText());
             assertEquals("Медицинский прибор", table.getRow(1).getCell(1).getText());
-            assertEquals("Медицинский прибор", table.getRow(2).getCell(1).getText());
+            assertEquals("РЗН 1", table.getRow(1).getCell(3).getText());
             assertTrue(table.getRow(1).getCell(2).getText().contains("Очистка датчика"));
             assertTrue(table.getRow(1).getCell(2).getText().contains("Отключить питание."));
             assertTrue(table.getRow(1).getCell(2).getParagraphArray(0).getRuns().get(0).isBold());
@@ -35,6 +36,12 @@ class MaintenanceDocumentServiceTest {
             assertEquals(new java.math.BigInteger("100"), table.getRow(1).getCell(2).getCTTc().getTcPr().getTcMar().getRight().getW());
             assertEquals(new java.math.BigInteger("70"), table.getRow(1).getCell(2).getCTTc().getTcPr().getTcMar().getTop().getW());
             assertEquals(new java.math.BigInteger("70"), table.getRow(1).getCell(2).getCTTc().getTcPr().getTcMar().getBottom().getW());
+            assertEquals(STMerge.RESTART, table.getRow(1).getCell(1).getCTTc().getTcPr().getVMerge().getVal());
+            assertEquals(STMerge.CONTINUE, table.getRow(2).getCell(1).getCTTc().getTcPr().getVMerge().getVal());
+            assertEquals(STMerge.RESTART, table.getRow(1).getCell(3).getCTTc().getTcPr().getVMerge().getVal());
+            assertEquals(STMerge.CONTINUE, table.getRow(2).getCell(3).getCTTc().getTcPr().getVMerge().getVal());
+            assertEquals(STMerge.RESTART, table.getRow(1).getCell(4).getCTTc().getTcPr().getVMerge().getVal());
+            assertEquals(STMerge.CONTINUE, table.getRow(2).getCell(4).getCTTc().getTcPr().getVMerge().getVal());
         }
     }
 }
