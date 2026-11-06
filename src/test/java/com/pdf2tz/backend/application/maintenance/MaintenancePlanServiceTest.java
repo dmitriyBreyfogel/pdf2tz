@@ -40,5 +40,7 @@ class MaintenancePlanServiceTest {
         verify(client, never()).generate(any(), anyString(), contains("CHUNK 1"));
         assertTrue(instruction.getValue().contains("Корневой объект содержит РОВНО два поля: sections и consumables"));
         assertTrue(instruction.getValue().contains("Не отправляй частичный JSON"));
+        assertTrue(instruction.getValue().contains("maintenanceType — название ровно одной конкретной работы"));
+        assertTrue(instruction.getValue().contains("верни ровно одну секцию с именем \"Работы технического обслуживания\""));
     }
 }

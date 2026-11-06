@@ -14,11 +14,12 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTOnOff;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTblBorders;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTblGrid;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTrPr;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHMerge;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTcPr;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTcMar;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTblWidth;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STBorder;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.STMerge;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblLayoutType;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblWidth;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -29,19 +30,21 @@ import java.math.BigInteger;
 public class MaintenanceDocumentService {
     private static final String FONT = "Times New Roman";
     private static final int[] WIDTHS = {480, 1650, 3300, 1050, 750, 1410};
+    private static final int CELL_MARGIN_HORIZONTAL = 100;
+    private static final int CELL_MARGIN_VERTICAL = 70;
 
     public byte[] create(JsonNode plan) {
         try (XWPFDocument document = new XWPFDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             configurePage(document);
-            paragraph(document, "Приложение №1", ParagraphAlignment.RIGHT, 9, false);
-            paragraph(document, "Перечень услуг по техническому обслуживанию медицинских изделий ФГБОУ ВО ВОЛГГМУ МИНЗДРАВА РОССИИ", ParagraphAlignment.CENTER, 10, true);
+            String deviceName = deviceName(plan);
+            paragraph(document, "Перечень услуг по техническому обслуживанию медицинского изделия: " + deviceName,
+                    ParagraphAlignment.CENTER, 10, true);
             XWPFTable table = document.createTable(1, WIDTHS.length);
             configureTable(table);
             writeHeader(table.getRow(0));
             for (JsonNode section : plan.path("sections")) {
-                writeSection(table, section.path("name").asText());
                 for (JsonNode row : section.path("rows")) {
-                    writeWork(table, row);
+                    writeWork(table, row, deviceName);
                 }
             }
             document.write(output);
@@ -81,16 +84,10 @@ public class MaintenanceDocumentService {
         for (int index = 0; index < headings.length; index++) cell(row.getCell(index), headings[index], 8, true, ParagraphAlignment.CENTER);
     }
 
-    private void writeSection(XWPFTable table, String name) {
-        XWPFTableRow row = table.createRow();
-        merge(row);
-        cell(row.getCell(0), name, 8, true, ParagraphAlignment.LEFT);
-    }
-
-    private void writeWork(XWPFTable table, JsonNode work) {
+    private void writeWork(XWPFTable table, JsonNode work, String deviceName) {
         XWPFTableRow row = table.createRow();
         cell(row.getCell(0), work.path("number").asText(), 8, false, ParagraphAlignment.CENTER);
-        cell(row.getCell(1), work.path("deviceName").asText(), 8, false, ParagraphAlignment.LEFT);
+        cell(row.getCell(1), deviceName, 8, false, ParagraphAlignment.LEFT);
         workCell(row.getCell(2), work);
         cell(row.getCell(3), work.path("registrationNumber").isNull() ? "" : work.path("registrationNumber").asText(), 8, false, ParagraphAlignment.CENTER);
         cell(row.getCell(4), "", 8, false, ParagraphAlignment.CENTER);
@@ -105,16 +102,9 @@ public class MaintenanceDocumentService {
         }
     }
 
-    private void merge(XWPFTableRow row) {
-        for (int index = 0; index < WIDTHS.length; index++) {
-            CTTcPr properties = row.getCell(index).getCTTc().isSetTcPr() ? row.getCell(index).getCTTc().getTcPr() : row.getCell(index).getCTTc().addNewTcPr();
-            CTHMerge merge = properties.addNewHMerge();
-            merge.setVal(index == 0 ? STMerge.RESTART : STMerge.CONTINUE);
-        }
-    }
-
     private void cell(XWPFTableCell cell, String text, int size, boolean bold, ParagraphAlignment alignment) {
         clear(cell);
+        applyMargins(cell);
         cell.setVerticalAlignment(XWPFTableCell.XWPFVertAlign.CENTER);
         paragraph(cell, text, alignment, size, bold);
     }
@@ -139,5 +129,31 @@ public class MaintenanceDocumentService {
         paragraph.setAlignment(alignment); paragraph.setSpacingAfter(0); paragraph.setSpacingBefore(0); paragraph.setSpacingBetween(1.0);
         XWPFRun run = paragraph.createRun();
         run.setFontFamily(FONT); run.setFontSize(size); run.setBold(bold); run.setText(text);
+    }
+
+    private String deviceName(JsonNode plan) {
+        for (JsonNode section : plan.path("sections")) {
+            for (JsonNode row : section.path("rows")) {
+                String name = row.path("deviceName").asText().trim();
+                if (!name.isEmpty()) {
+                    return name;
+                }
+            }
+        }
+        throw new IllegalArgumentException("План ТЗ не содержит наименование медицинского изделия");
+    }
+
+    private void applyMargins(XWPFTableCell cell) {
+        CTTcPr properties = cell.getCTTc().isSetTcPr() ? cell.getCTTc().getTcPr() : cell.getCTTc().addNewTcPr();
+        CTTcMar margins = properties.isSetTcMar() ? properties.getTcMar() : properties.addNewTcMar();
+        margin(margins.isSetTop() ? margins.getTop() : margins.addNewTop(), CELL_MARGIN_VERTICAL);
+        margin(margins.isSetBottom() ? margins.getBottom() : margins.addNewBottom(), CELL_MARGIN_VERTICAL);
+        margin(margins.isSetLeft() ? margins.getLeft() : margins.addNewLeft(), CELL_MARGIN_HORIZONTAL);
+        margin(margins.isSetRight() ? margins.getRight() : margins.addNewRight(), CELL_MARGIN_HORIZONTAL);
+    }
+
+    private void margin(CTTblWidth value, int width) {
+        value.setType(STTblWidth.DXA);
+        value.setW(BigInteger.valueOf(width));
     }
 }
