@@ -10,25 +10,28 @@ import java.util.Arrays;
  * непроверенных или неожиданно дорогих моделей.</p>
  */
 public enum MaintenanceLlmModel {
-    GIGACHAT_ULTRA("sber/gigachat-3.5-ultra", "GigaChat 3.5 Ultra", "Сбер", true, 20000),
-    YANDEX_GPT_LITE("yandex/gpt-lite-5", "YandexGPT Lite 5", "Яндекс", false, 20000),
-    DEEPSEEK_FLASH("deepseek/deepseek-v4.1-flash", "DeepSeek V4.1 Flash", "DeepSeek", false, 20000),
-    QWEN_397B("qwen/qwen3.5-397b-a17b", "Qwen 3.5 397B A17B", "Qwen", true, 20000),
-    GPT_TERRA("openai/gpt-6.1-terra", "GPT-6.1 Terra", "OpenAI", true, 20000),
-    CLAUDE_SONNET("anthropic/claude-sonnet-5.5", "Claude Sonnet 5.5", "Anthropic", true, 20000);
+    GIGACHAT_ULTRA("sber/gigachat-3.5-ultra", "GigaChat 3.5 Ultra", "Сбер", true, 20000, null),
+    YANDEX_GPT_LITE("yandex/gpt-lite-5", "YandexGPT Lite 5", "Яндекс", false, 20000, null),
+    DEEPSEEK_FLASH("deepseek/deepseek-v4.1-flash", "DeepSeek V4.1 Flash", "DeepSeek", true, 20000, "low"),
+    QWEN_397B("qwen/qwen3.5-397b-a17b", "Qwen 3.5 397B A17B", "Qwen", true, 20000, null),
+    GPT_TERRA("openai/gpt-6.1-terra", "GPT-6.1 Terra", "OpenAI", true, 20000, null),
+    CLAUDE_SONNET("anthropic/claude-sonnet-5.5", "Claude Sonnet 5.5", "Anthropic", true, 20000, null);
 
     private final String routerAiId;
     private final String displayName;
     private final String provider;
     private final boolean schemaEnforced;
     private final int maxCompletionTokens;
+    private final String reasoningEffort;
 
-    MaintenanceLlmModel(String routerAiId, String displayName, String provider, boolean schemaEnforced, int maxCompletionTokens) {
+    MaintenanceLlmModel(String routerAiId, String displayName, String provider, boolean schemaEnforced, int maxCompletionTokens,
+                        String reasoningEffort) {
         this.routerAiId = routerAiId;
         this.displayName = displayName;
         this.provider = provider;
         this.schemaEnforced = schemaEnforced;
         this.maxCompletionTokens = maxCompletionTokens;
+        this.reasoningEffort = reasoningEffort;
     }
 
     public String routerAiId() { return routerAiId; }
@@ -36,6 +39,7 @@ public enum MaintenanceLlmModel {
     public String provider() { return provider; }
     public boolean schemaEnforced() { return schemaEnforced; }
     public int maxCompletionTokens() { return maxCompletionTokens; }
+    public String reasoningEffort() { return reasoningEffort; }
 
     public static MaintenanceLlmModel byRouterAiId(String modelId) {
         return Arrays.stream(values())

@@ -27,6 +27,9 @@ public class RouterAiHttpClient implements RouterAiClient {
         if (properties.apiKey() == null || properties.apiKey().isBlank()) throw AppException.build(ErrorCode.LLM_NOT_CONFIGURED, "Не задана переменная окружения ROUTERAI_API_KEY");
         ObjectNode body = mapper.createObjectNode(); body.put("model", model.routerAiId()); body.put("temperature", 0);
         body.put("max_tokens", model.maxCompletionTokens());
+        if (model.reasoningEffort() != null) {
+            body.putObject("reasoning").put("effort", model.reasoningEffort());
+        }
         var messages = body.putArray("messages"); messages.addObject().put("role", "system").put("content", instruction); messages.addObject().put("role", "user").put("content", context);
         if (model.schemaEnforced()) {
             ObjectNode format = body.putObject("response_format");
