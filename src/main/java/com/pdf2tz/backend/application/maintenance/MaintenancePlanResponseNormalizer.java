@@ -8,7 +8,9 @@ import com.pdf2tz.backend.error.AppException;
 import com.pdf2tz.backend.error.ErrorCode;
 import org.springframework.stereotype.Component;
 
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -49,7 +51,7 @@ public class MaintenancePlanResponseNormalizer {
             }
         }
 
-        Set<Integer> rowNumbers = rowNumbers(sections);
+        Map<Integer, Integer> rowNumberMap = renumberRows(sections);
         ArrayNode consumables = normalized.putArray("consumables");
         for (JsonNode inputConsumable : root.path("consumables")) {
             if (!(inputConsumable instanceof ObjectNode consumableObject)) {
@@ -60,10 +62,11 @@ public class MaintenancePlanResponseNormalizer {
             consumable.put("purpose", requiredText(consumableObject, "purpose"));
             ArrayNode relatedRows = consumable.putArray("relatedRowNumbers");
             for (int number : positiveNumbers(consumableObject.get("relatedRowNumbers"))) {
-                if (!rowNumbers.contains(number)) {
+                Integer normalizedNumber = rowNumberMap.get(number);
+                if (normalizedNumber == null) {
                     throw invalid();
                 }
-                relatedRows.add(number);
+                relatedRows.add(normalizedNumber);
             }
             JsonNode rate = consumableObject.get("consumptionRate");
             if (rate == null || rate.isNull() || "null".equalsIgnoreCase(rate.asText())) {
@@ -130,14 +133,16 @@ public class MaintenancePlanResponseNormalizer {
         }
     }
 
-    private Set<Integer> rowNumbers(ArrayNode sections) {
-        Set<Integer> numbers = new LinkedHashSet<>();
+    private Map<Integer, Integer> renumberRows(ArrayNode sections) {
+        Map<Integer, Integer> numbers = new LinkedHashMap<>();
+        int normalizedNumber = 1;
         for (JsonNode section : sections) {
             for (JsonNode row : section.path("rows")) {
-                int number = row.path("number").asInt();
-                if (!numbers.add(number)) {
+                int originalNumber = row.path("number").asInt();
+                if (numbers.putIfAbsent(originalNumber, normalizedNumber++) != null) {
                     throw invalid();
                 }
+                ((ObjectNode) row).put("number", numbers.get(originalNumber));
             }
         }
         return numbers;
