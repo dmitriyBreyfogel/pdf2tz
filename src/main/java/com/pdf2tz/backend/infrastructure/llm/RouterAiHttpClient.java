@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.pdf2tz.backend.application.maintenance.RouterAiClient;
+import com.pdf2tz.backend.application.maintenance.MaintenancePlanDiagnosticsProperties;
 import com.pdf2tz.backend.application.maintenance.model.MaintenanceLlmModel;
 import com.pdf2tz.backend.error.AppException;
 import com.pdf2tz.backend.error.ErrorCode;
@@ -11,11 +12,17 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.util.Map;
+
 @Component
 public class RouterAiHttpClient implements RouterAiClient {
     private final RouterAiProperties properties;
+    private final MaintenancePlanDiagnosticsProperties diagnosticsProperties;
     private final ObjectMapper mapper = new ObjectMapper();
-    public RouterAiHttpClient(RouterAiProperties properties) { this.properties = properties; }
+    public RouterAiHttpClient(RouterAiProperties properties, MaintenancePlanDiagnosticsProperties diagnosticsProperties) {
+        this.properties = properties;
+        this.diagnosticsProperties = diagnosticsProperties;
+    }
     @Override public JsonNode generate(MaintenanceLlmModel model, String instruction, String context) {
         if (properties.apiKey() == null || properties.apiKey().isBlank()) throw AppException.build(ErrorCode.LLM_NOT_CONFIGURED, "Не задана переменная окружения ROUTERAI_API_KEY");
         ObjectNode body = mapper.createObjectNode(); body.put("model", model.routerAiId()); body.put("temperature", 0);
@@ -34,6 +41,13 @@ public class RouterAiHttpClient implements RouterAiClient {
                     .post().uri("/chat/completions").contentType(MediaType.APPLICATION_JSON).body(mapper.writeValueAsString(body)).retrieve().body(String.class);
             JsonNode response = mapper.readTree(rawResponse);
             String content = response.path("choices").path(0).path("message").path("content").asText();
+            if (content.isBlank()) {
+                Map<String, Object> details = diagnosticsProperties.includeInvalidResponse()
+                        ? Map.of("modelCode", model.routerAiId(), "routerResponse", rawResponse)
+                        : Map.of();
+                throw AppException.build(ErrorCode.LLM_INVALID_RESPONSE,
+                        "Модель не вернула содержимое плана ТЗ", details);
+            }
             return mapper.readTree(jsonContent(content));
         } catch (AppException ex) { throw ex; } catch (Exception ex) {
             throw AppException.build(ErrorCode.LLM_REQUEST_FAILED,
