@@ -1,7 +1,6 @@
 package com.pdf2tz.backend.application.maintenance;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.pdf2tz.backend.application.maintenance.model.MaintenanceLlmModel;
 import com.pdf2tz.backend.application.pdf.PdfChunkingPipeline;
 import com.pdf2tz.backend.application.pdf.model.chunk.ChunkedDocument;
@@ -17,11 +16,14 @@ public class MaintenancePlanService {
     private final PdfChunkingPipeline chunkingPipeline;
     private final RouterAiClient routerAiClient;
     private final MaintenanceChunkSelector chunkSelector;
+    private final MaintenancePlanResponseNormalizer responseNormalizer;
 
-    public MaintenancePlanService(PdfChunkingPipeline chunkingPipeline, RouterAiClient routerAiClient, MaintenanceChunkSelector chunkSelector) {
+    public MaintenancePlanService(PdfChunkingPipeline chunkingPipeline, RouterAiClient routerAiClient,
+                                  MaintenanceChunkSelector chunkSelector, MaintenancePlanResponseNormalizer responseNormalizer) {
         this.chunkingPipeline = chunkingPipeline;
         this.routerAiClient = routerAiClient;
         this.chunkSelector = chunkSelector;
+        this.responseNormalizer = responseNormalizer;
     }
 
     public JsonNode generate(byte[] pdf, String modelCode) {
@@ -31,10 +33,7 @@ public class MaintenancePlanService {
         ChunkedDocument document = chunkingPipeline.chunk(pdf);
         String context = select(document.chunks());
         JsonNode plan = routerAiClient.generate(model, instruction(), context);
-        if (!plan.isObject() || !plan.has("sections") || !plan.has("consumables")) {
-            throw AppException.build(ErrorCode.LLM_INVALID_RESPONSE, "Модель вернула JSON, не соответствующий плану ТЗ");
-        }
-        return clearInventoryNumbers(plan);
+        return responseNormalizer.normalize(plan);
     }
 
     private String select(List<DocumentChunk> chunks) {
@@ -45,24 +44,24 @@ public class MaintenancePlanService {
     }
 
     private String instruction() {
-        return "Ты составляешь проект ТЗ технического обслуживания одного медицинского изделия только по переданным фрагментам инструкции. "
-                + "Работай строго по предоставленным данным: не выдумывай, не додумывай и не обобщай факты, работы, периодичность, расходники или номера. "
-                + "Если сведения не подтверждены фрагментами инструкции, не включай их в результат. Каждая строка верхнего уровня — ровно одно сочетание одного вида работ и одной конкретной периодичности либо условия выполнения. "
-                + "Не объединяй в одной строке разные работы, периодичности, условия или режимы обслуживания; для каждого такого сочетания создай отдельную строку. "
-                + "maintenanceWorkDescription — это не краткое название работы, а понятная исполнителю инструкция по её выполнению. Сохрани все практически значимые подробности из фрагментов: подготовку и доступ к детали, снятие или установку элементов, последовательность действий, разрешённые средства и инструменты, параметры и усилия, ограничения, запреты, меры предосторожности, признаки корректного результата и последующую сборку или проверку. "
-                + "Не теряй дополнительную информацию, относящуюся к этой работе. Описывай подробно, но компактно: без повторов и без пересказа не относящихся к выполнению работы частей инструкции. Его элементы могут быть только последовательными шагами одной работы из этой строки, а не самостоятельными работами или внутренними строками. "
-                + "registrationNumber заполняй только если он явно указан в переданных фрагментах, иначе null. inventoryNumber всегда возвращай null: не ищи, не извлекай и не заполняй инвентарный номер. "
-                + "Расходники не включай в строки ТЗ: верни отдельно и только если необходимость или норма расхода прямо следует из инструкции. "
-                + "Верни JSON с полями sections и consumables. В sections[].rows[] обязательны number, deviceName, maintenanceType, maintenanceWorkDescription, registrationNumber, inventoryNumber, frequency, sourcePages. "
-                + "В consumables[] обязательны name, purpose, relatedRowNumbers, consumptionRate, sourcePages. sourcePages всегда содержит страницы источника.";
-    }
+        return """
+                Ты составляешь проект ТЗ технического обслуживания одного медицинского изделия только по переданным фрагментам инструкции. Ответ всегда на русском языке.
 
-    private JsonNode clearInventoryNumbers(JsonNode plan) {
-        plan.path("sections").forEach(section -> section.path("rows").forEach(row -> {
-            if (row instanceof ObjectNode objectRow) {
-                objectRow.putNull("inventoryNumber");
-            }
-        }));
-        return plan;
+                Источник истины — только фрагменты после этого сообщения. Не выдумывай, не додумывай, не обобщай и не подменяй факты, работы, периодичность, расходники, номера, параметры или предупреждения. Если работа, расходник или подробность не подтверждены фрагментами, не включай их.
+
+                Сначала молча выдели все подтверждённые работы по техническому обслуживанию, очистке, дезинфекции, осмотру, проверке, замене и подготовке к обслуживанию. Затем составь строки. Каждая строка верхнего уровня — ровно одно сочетание одной работы и одной конкретной периодичности либо одного условия выполнения. Не объединяй разные работы, периодичности, условия или режимы в одну строку. Если одна и та же работа выполняется регулярно и после события, это две разные строки. Не создавай внутренние строки или самостоятельные работы внутри maintenanceWorkDescription: его элементы могут быть только последовательными шагами выполнения одной работы этой строки.
+
+                maintenanceWorkDescription — понятная исполнителю, подробная, но компактная инструкция, а не краткое название работы. Сохрани все практически значимые сведения из фрагментов: подготовку и доступ к детали, снятие и установку элементов, порядок действий, разрешённые средства и инструменты, параметры и усилия, ограничения, запреты, меры предосторожности, признаки корректного результата, сборку и проверку после работы. Не теряй относящиеся к работе сведения, но не пересказывай не относящееся к ней содержание инструкции.
+
+                Если сама работа подтверждена, но её периодичность в переданных фрагментах не названа, сохрани работу с frequency ровно "Не указана в инструкции". Не придумывай периодичность. registrationNumber заполняй только если он явно указан в фрагментах, иначе null. inventoryNumber всегда возвращай null: не ищи и не заполняй инвентарный номер.
+
+                Расходник — расходуемый материал, одноразовое изделие, жидкость, реагент или заменяемый элемент, который прямо требуется для подтверждённой работы. Не добавляй расходник по догадке. Не включай многоразовый инструмент или часть прибора, если инструкция не предписывает её замену. Расходники не дублируй в строках ТЗ: верни их только в consumables. consumptionRate указывай только при явно названной норме или условии расхода, иначе null. relatedRowNumbers должны ссылаться на номера связанных строк.
+
+                Для каждой строки и каждого расходника укажи sourcePages только из маркеров PAGES переданных фрагментов. Номера строк должны быть уникальными положительными целыми числами.
+
+                Верни только JSON, без Markdown, комментариев и пояснений. Строго соблюдай эту форму: {"sections":[{"name":"...","rows":[{"number":1,"deviceName":"...","maintenanceType":"...","maintenanceWorkDescription":["шаг 1","шаг 2"],"registrationNumber":null,"inventoryNumber":null,"frequency":"...","sourcePages":[1]}]}],"consumables":[{"name":"...","purpose":"...","relatedRowNumbers":[1],"consumptionRate":null,"sourcePages":[1]}]}. Никогда не помещай строки напрямую в sections: каждая секция обязана иметь name и массив rows. maintenanceWorkDescription, sourcePages и relatedRowNumbers всегда массивы; number и номера страниц всегда числа, а не строки.
+
+                Перед ответом молча проверь: JSON разбирается; есть только sections и consumables; все секции содержат rows; каждая строка и каждый расходник имеют все поля указанной формы; inventoryNumber равен null; все ссылки relatedRowNumbers существуют; в ответе нет неподтверждённых сведений.
+                """;
     }
 }
