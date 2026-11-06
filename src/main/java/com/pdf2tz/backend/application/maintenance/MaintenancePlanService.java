@@ -10,6 +10,7 @@ import com.pdf2tz.backend.error.ErrorCode;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class MaintenancePlanService {
@@ -17,13 +18,16 @@ public class MaintenancePlanService {
     private final RouterAiClient routerAiClient;
     private final MaintenanceChunkSelector chunkSelector;
     private final MaintenancePlanResponseNormalizer responseNormalizer;
+    private final MaintenancePlanDiagnosticsProperties diagnosticsProperties;
 
     public MaintenancePlanService(PdfChunkingPipeline chunkingPipeline, RouterAiClient routerAiClient,
-                                  MaintenanceChunkSelector chunkSelector, MaintenancePlanResponseNormalizer responseNormalizer) {
+                                  MaintenanceChunkSelector chunkSelector, MaintenancePlanResponseNormalizer responseNormalizer,
+                                  MaintenancePlanDiagnosticsProperties diagnosticsProperties) {
         this.chunkingPipeline = chunkingPipeline;
         this.routerAiClient = routerAiClient;
         this.chunkSelector = chunkSelector;
         this.responseNormalizer = responseNormalizer;
+        this.diagnosticsProperties = diagnosticsProperties;
     }
 
     public JsonNode generate(byte[] pdf, String modelCode) {
@@ -33,7 +37,15 @@ public class MaintenancePlanService {
         ChunkedDocument document = chunkingPipeline.chunk(pdf);
         String context = select(document.chunks());
         JsonNode plan = routerAiClient.generate(model, instruction(), context);
-        return responseNormalizer.normalize(plan);
+        try {
+            return responseNormalizer.normalize(plan);
+        } catch (AppException exception) {
+            if (!diagnosticsProperties.includeInvalidResponse() || exception.getCode() != ErrorCode.LLM_INVALID_RESPONSE) {
+                throw exception;
+            }
+            throw AppException.build(ErrorCode.LLM_INVALID_RESPONSE, exception.getMessage(),
+                    Map.of("modelCode", model.routerAiId(), "providerResponse", plan));
+        }
     }
 
     private String select(List<DocumentChunk> chunks) {

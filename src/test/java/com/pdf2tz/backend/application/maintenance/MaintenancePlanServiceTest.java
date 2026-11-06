@@ -32,7 +32,7 @@ class MaintenancePlanServiceTest {
                 """);
         when(client.generate(eq(MaintenanceLlmModel.DEEPSEEK_FLASH), anyString(), anyString())).thenReturn(expected);
 
-        var result = new MaintenancePlanService(pipeline, client, new MaintenanceChunkSelector(chunks -> Set.of()), new MaintenancePlanResponseNormalizer()).generate(new byte[]{1}, "deepseek/deepseek-v4.1-flash");
+        var result = new MaintenancePlanService(pipeline, client, new MaintenanceChunkSelector(chunks -> Set.of()), new MaintenancePlanResponseNormalizer(), new MaintenancePlanDiagnosticsProperties()).generate(new byte[]{1}, "deepseek/deepseek-v4.1-flash");
 
         assertEquals(true, result.path("sections").path(0).path("rows").path(0).path("inventoryNumber").isNull());
         var instruction = ArgumentCaptor.forClass(String.class);
