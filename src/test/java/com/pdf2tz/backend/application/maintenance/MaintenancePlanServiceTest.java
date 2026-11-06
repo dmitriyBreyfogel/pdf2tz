@@ -45,7 +45,8 @@ class MaintenancePlanServiceTest {
         assertTrue(instruction.getValue().contains("каждый явно упомянутый в нём требуемый расходуемый материал"));
         assertTrue(instruction.getValue().contains("в frequency нет объединённых условий"));
         assertTrue(instruction.getValue().contains("Изделие эксплуатируется в Российской Федерации"));
-        assertTrue(instruction.getValue().contains("выбери только вариант для рынков вне США"));
+        assertTrue(instruction.getValue().contains("прямо обозначен как применимый к Российской Федерации"));
+        assertTrue(instruction.getValue().contains("не угадывай применимый режим"));
         assertTrue(instruction.getValue().contains("короткое основное наименование медицинского изделия"));
     }
 }
