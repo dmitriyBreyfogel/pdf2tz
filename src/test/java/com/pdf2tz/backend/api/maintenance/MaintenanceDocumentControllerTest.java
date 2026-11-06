@@ -15,7 +15,7 @@ import static org.mockito.Mockito.when;
 
 class MaintenanceDocumentControllerTest {
     @Test
-    void returnsDocxAndConsumablesInOneMultipartResponse() throws Exception {
+    void returnsDocxPlanAndConsumablesInOneMultipartResponse() throws Exception {
         PdfUploadReader uploadReader = mock(PdfUploadReader.class);
         MaintenancePlanService planService = mock(MaintenancePlanService.class);
         MaintenanceDocumentService documentService = mock(MaintenanceDocumentService.class);
@@ -31,6 +31,7 @@ class MaintenanceDocumentControllerTest {
         assertTrue(response.getHeaders().getContentType().toString().startsWith("multipart/mixed"));
         String body = new String(response.getBody(), java.nio.charset.StandardCharsets.ISO_8859_1);
         assertTrue(body.contains("name=\"document\""));
+        assertTrue(body.contains("name=\"plan\""));
         assertTrue(body.contains("name=\"consumables\""));
         assertTrue(new String(response.getBody(), java.nio.charset.StandardCharsets.UTF_8).contains("Салфетка"));
         assertArrayEquals(new byte[]{1, 2, 3}, new byte[]{response.getBody()[body.indexOf("\r\n\r\n") + 4], response.getBody()[body.indexOf("\r\n\r\n") + 5], response.getBody()[body.indexOf("\r\n\r\n") + 6]});

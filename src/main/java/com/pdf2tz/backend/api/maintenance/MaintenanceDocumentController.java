@@ -14,7 +14,7 @@ import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
-/** Returns the generated Word document and its consumables in one multipart response. */
+/** Returns the generated Word document, source-grounded plan and its consumables in one multipart response. */
 @RestController
 public class MaintenanceDocumentController implements MaintenanceDocumentApi {
     private static final MediaType DOCX = MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
@@ -38,10 +38,10 @@ public class MaintenanceDocumentController implements MaintenanceDocumentApi {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
                 .contentType(MediaType.parseMediaType("multipart/mixed; boundary=" + boundary))
-                .body(multipart(boundary, document, plan.path("consumables")));
+                .body(multipart(boundary, document, plan));
     }
 
-    private byte[] multipart(String boundary, byte[] document, com.fasterxml.jackson.databind.JsonNode consumables) {
+    private byte[] multipart(String boundary, byte[] document, com.fasterxml.jackson.databind.JsonNode plan) {
         try {
             ByteArrayOutputStream output = new ByteArrayOutputStream();
             write(output, "--" + boundary + "\r\n");
@@ -50,8 +50,12 @@ public class MaintenanceDocumentController implements MaintenanceDocumentApi {
             output.write(document);
             write(output, "\r\n--" + boundary + "\r\n");
             write(output, "Content-Type: application/json; charset=UTF-8\r\n");
+            write(output, "Content-Disposition: inline; name=\"plan\"\r\n\r\n");
+            output.write(mapper.writeValueAsBytes(plan));
+            write(output, "\r\n--" + boundary + "\r\n");
+            write(output, "Content-Type: application/json; charset=UTF-8\r\n");
             write(output, "Content-Disposition: inline; name=\"consumables\"\r\n\r\n");
-            output.write(mapper.writeValueAsBytes(consumables));
+            output.write(mapper.writeValueAsBytes(plan.path("consumables")));
             write(output, "\r\n--" + boundary + "--\r\n");
             return output.toByteArray();
         } catch (Exception exception) {
