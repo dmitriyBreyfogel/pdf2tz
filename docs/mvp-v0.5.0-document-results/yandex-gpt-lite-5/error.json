@@ -1,0 +1,7 @@
+{
+  "code": "LLM_REQUEST_FAILED",
+  "status": 502,
+  "message": "Не удалось получить ответ RouterAI: HttpClientErrorException: 402 Payment Required: \"{\"error\":{\"message\":\"Insufficient balance\",\"code\":402}}\"",
+  "details": {},
+  "timestamp": "2026-11-06T12:20:21.663412Z"
+}

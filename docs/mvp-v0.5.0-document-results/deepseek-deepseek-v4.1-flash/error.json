@@ -1,0 +1,7 @@
+{
+  "code": "LLM_INVALID_RESPONSE",
+  "status": 502,
+  "message": "Модель вернула JSON, не соответствующий плану ТЗ",
+  "details": {},
+  "timestamp": "2026-11-06T12:15:56.024138Z"
+}
