@@ -31,6 +31,10 @@ class MaintenanceDocumentServiceTest {
             assertEquals("", table.getRow(1).getCell(4).getText());
             assertEquals(new java.math.BigInteger("100"), table.getRow(1).getCell(0).getCTTc().getTcPr().getTcMar().getLeft().getW());
             assertEquals(new java.math.BigInteger("70"), table.getRow(1).getCell(0).getCTTc().getTcPr().getTcMar().getTop().getW());
+            assertEquals(new java.math.BigInteger("100"), table.getRow(1).getCell(2).getCTTc().getTcPr().getTcMar().getLeft().getW());
+            assertEquals(new java.math.BigInteger("100"), table.getRow(1).getCell(2).getCTTc().getTcPr().getTcMar().getRight().getW());
+            assertEquals(new java.math.BigInteger("70"), table.getRow(1).getCell(2).getCTTc().getTcPr().getTcMar().getTop().getW());
+            assertEquals(new java.math.BigInteger("70"), table.getRow(1).getCell(2).getCTTc().getTcPr().getTcMar().getBottom().getW());
         }
     }
 }

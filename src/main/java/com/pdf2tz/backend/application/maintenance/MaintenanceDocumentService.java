@@ -96,6 +96,7 @@ public class MaintenanceDocumentService {
 
     private void workCell(XWPFTableCell cell, JsonNode work) {
         clear(cell);
+        applyMargins(cell);
         paragraph(cell, work.path("maintenanceType").asText(), ParagraphAlignment.LEFT, 8, true);
         for (JsonNode step : work.path("maintenanceWorkDescription")) {
             paragraph(cell, "— " + step.asText(), ParagraphAlignment.LEFT, 8, false);
