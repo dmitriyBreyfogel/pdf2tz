@@ -1,0 +1,282 @@
+[
+  {
+    "name": "Нейтральный моющий раствор",
+    "purpose": "Очистка экспонированных участков световых входов и выходов.",
+    "relatedRowNumbers": [
+      1
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      15,
+      16
+    ]
+  },
+  {
+    "name": "Ватные тампоны",
+    "purpose": "Очистка и протирание экспонированных участков световых входов и выходов.",
+    "relatedRowNumbers": [
+      1
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      15,
+      16
+    ]
+  },
+  {
+    "name": "70%-ный спирт",
+    "purpose": "Протирание экспонированных участков световых входов и выходов.",
+    "relatedRowNumbers": [
+      1
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      15,
+      16
+    ]
+  },
+  {
+    "name": "Ферментативный моющий раствор с нейтральным pH 6,0–8,0",
+    "purpose": "Замачивание и очистка блока головки камеры.",
+    "relatedRowNumbers": [
+      2,
+      3,
+      4
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      16,
+      17
+    ]
+  },
+  {
+    "name": "Дистиллированная вода",
+    "purpose": "Очистка и ополаскивание блока головки камеры.",
+    "relatedRowNumbers": [
+      3,
+      4
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      16,
+      17
+    ]
+  },
+  {
+    "name": "Одноразовая нетканая салфетка",
+    "purpose": "Сушка прибора после очистки.",
+    "relatedRowNumbers": [
+      3,
+      4
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      17,
+      18
+    ]
+  },
+  {
+    "name": "70%-ный изопропиловый спирт",
+    "purpose": "Удаление остатков моющего средства со штекера карты и очистка стеклянных поверхностей.",
+    "relatedRowNumbers": [
+      3,
+      4
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      17,
+      18
+    ]
+  },
+  {
+    "name": "Ватные палочки",
+    "purpose": "Очистка и сушка экспонированных стеклянных поверхностей.",
+    "relatedRowNumbers": [
+      3,
+      4
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      17,
+      18
+    ]
+  },
+  {
+    "name": "Окись этилена",
+    "purpose": "Газовая стерилизация блока головки камеры.",
+    "relatedRowNumbers": [
+      13,
+      14
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      19,
+      20
+    ]
+  },
+  {
+    "name": "Пероксид водорода для системы STERIS Amsco V-PRO",
+    "purpose": "Стерилизация блока головки камеры в системе V-PRO.",
+    "relatedRowNumbers": [
+      15,
+      16
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      21,
+      22
+    ]
+  },
+  {
+    "name": "Полипропиленовый стерилизационный чехол",
+    "purpose": "Упаковка при стерилизации в системе V-PRO.",
+    "relatedRowNumbers": [
+      15,
+      16
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      21,
+      22
+    ]
+  },
+  {
+    "name": "Полиолефиновый пакет",
+    "purpose": "Упаковка при стерилизации в системе V-PRO.",
+    "relatedRowNumbers": [
+      15,
+      16
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      21,
+      22
+    ]
+  },
+  {
+    "name": "Пероксид водорода для системы STERRAD",
+    "purpose": "Стерилизация блока головки камеры в системе STERRAD.",
+    "relatedRowNumbers": [
+      17,
+      18
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      19,
+      20
+    ]
+  },
+  {
+    "name": "CIDEX, 2,4%-ный раствор глутарового альдегида",
+    "purpose": "Ручная дезинфекция высокого уровня блока головки камеры; метод разрешён только в США.",
+    "relatedRowNumbers": [
+      19,
+      20
+    ],
+    "consumptionRate": "Не использовать активированный раствор по истечении 14-дневного срока использования.",
+    "sourcePages": [
+      14,
+      15,
+      23,
+      24,
+      25
+    ]
+  },
+  {
+    "name": "Активатор раствора CIDEX",
+    "purpose": "Активация раствора глутарового альдегида.",
+    "relatedRowNumbers": [
+      19,
+      20
+    ],
+    "consumptionRate": "Всё содержимое флакона добавить к раствору.",
+    "sourcePages": [
+      24,
+      25
+    ]
+  },
+  {
+    "name": "Resert XL HLD, 2,0%-ный раствор пероксида водорода",
+    "purpose": "Ручная дезинфекция высокого уровня блока головки камеры; метод разрешён только в США.",
+    "relatedRowNumbers": [
+      21,
+      22
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      14,
+      15,
+      23,
+      24,
+      25,
+      26
+    ]
+  },
+  {
+    "name": "Химическая тест-полоска Verify для Resert XL HLD",
+    "purpose": "Проверка концентрации пероксида водорода в растворе Resert XL HLD.",
+    "relatedRowNumbers": [
+      21,
+      22
+    ],
+    "consumptionRate": "Перед каждым использованием раствора.",
+    "sourcePages": [
+      24,
+      25
+    ]
+  },
+  {
+    "name": "Стерильная вода",
+    "purpose": "Промывание блока головки камеры после дезинфекции высокого уровня.",
+    "relatedRowNumbers": [
+      19,
+      20,
+      21,
+      22
+    ],
+    "consumptionRate": "Для каждого из трёх циклов промывания использовать свежую воду.",
+    "sourcePages": [
+      25,
+      26
+    ]
+  },
+  {
+    "name": "Стерильная нетканая салфетка",
+    "purpose": "Сушка блока головки камеры и штекера после дезинфекции высокого уровня.",
+    "relatedRowNumbers": [
+      19,
+      20,
+      21,
+      22
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      25,
+      26
+    ]
+  },
+  {
+    "name": "Одноразовая маловорсистая салфетка",
+    "purpose": "Протирание внешних поверхностей прибора.",
+    "relatedRowNumbers": [
+      29
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      51,
+      52
+    ]
+  },
+  {
+    "name": "Средство для дезинфекции поверхностей",
+    "purpose": "Протирание внешних поверхностей прибора.",
+    "relatedRowNumbers": [
+      29
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      51,
+      52
+    ]
+  }
+]

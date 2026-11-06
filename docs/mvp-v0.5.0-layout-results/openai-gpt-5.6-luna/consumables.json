@@ -1,0 +1,209 @@
+[
+  {
+    "name": "Нейтральный моющий раствор",
+    "purpose": "Очистка открытых участков поверхности головки камеры перед протиранием спиртом.",
+    "relatedRowNumbers": [
+      1
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      16
+    ]
+  },
+  {
+    "name": "Ватный тампон",
+    "purpose": "Нанесение нейтрального моющего раствора и спирта на открытые участки поверхности.",
+    "relatedRowNumbers": [
+      1
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      16
+    ]
+  },
+  {
+    "name": "Спирт 70%-ный",
+    "purpose": "Протирание открытых участков поверхности после очистки нейтральным моющим раствором.",
+    "relatedRowNumbers": [
+      1
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      16
+    ]
+  },
+  {
+    "name": "Ферментативный моющий раствор с нейтральным pH (6,0–8,0)",
+    "purpose": "Предварительное замачивание блока головки камеры сразу после применения для предотвращения высыхания загрязнений; также используется при очистке перед дезинфекцией и стерилизацией.",
+    "relatedRowNumbers": [
+      2,
+      3,
+      4
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      16,
+      17
+    ]
+  },
+  {
+    "name": "Дистиллированная вода",
+    "purpose": "Очистка и ополаскивание блока головки камеры.",
+    "relatedRowNumbers": [
+      3,
+      4
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      16,
+      17
+    ]
+  },
+  {
+    "name": "Мягкая безворсовая ткань",
+    "purpose": "Высушивание оборудования после очистки.",
+    "relatedRowNumbers": [
+      3,
+      4
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      17,
+      18
+    ]
+  },
+  {
+    "name": "Изопропиловый спирт 70%-ный",
+    "purpose": "Протирание разъема карты и очистка открытых стеклянных поверхностей при очистке блока головки камеры.",
+    "relatedRowNumbers": [
+      3,
+      4
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      17,
+      18
+    ]
+  },
+  {
+    "name": "Мягкий ватный аппликатор",
+    "purpose": "Нанесение изопропилового спирта на стеклянные поверхности и их последующее высушивание.",
+    "relatedRowNumbers": [
+      3,
+      4
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      17,
+      18
+    ]
+  },
+  {
+    "name": "Раствор глутарового альдегида CIDEX 2,4%",
+    "purpose": "Ручная дезинфекция высокого уровня блока головки камеры.",
+    "relatedRowNumbers": [
+      11
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      24,
+      25
+    ]
+  },
+  {
+    "name": "Активатор раствора CIDEX",
+    "purpose": "Активация раствора CIDEX перед применением.",
+    "relatedRowNumbers": [
+      11
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      24,
+      25
+    ]
+  },
+  {
+    "name": "Стерильная вода",
+    "purpose": "Трехкратное ополаскивание блока головки камеры после дезинфекции; для каждого ополаскивания используют свежую воду.",
+    "relatedRowNumbers": [
+      11,
+      12
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      25,
+      26
+    ]
+  },
+  {
+    "name": "Стерильная безворсовая ткань",
+    "purpose": "Высушивание блока головки камеры и разъема после дезинфекции.",
+    "relatedRowNumbers": [
+      11,
+      12
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      26
+    ]
+  },
+  {
+    "name": "Раствор Resert XL HLD с пероксидом водорода 2,0%",
+    "purpose": "Ручная дезинфекция высокого уровня блока головки камеры.",
+    "relatedRowNumbers": [
+      12
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      24,
+      25
+    ]
+  },
+  {
+    "name": "Химическая тестовая полоска Verify для раствора Resert XL HLD",
+    "purpose": "Проверка концентрации пероксида водорода перед каждым применением раствора Resert XL HLD.",
+    "relatedRowNumbers": [
+      12
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      25
+    ]
+  },
+  {
+    "name": "Окись этилена (ЭО)",
+    "purpose": "Стерилизация блока головки камеры методом газовой стерилизации.",
+    "relatedRowNumbers": [
+      13
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      19,
+      20
+    ]
+  },
+  {
+    "name": "Полипропиленовый стерилизационный чехол",
+    "purpose": "Упаковка при стерилизации блока головки камеры в системе V-PRO.",
+    "relatedRowNumbers": [
+      14
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      22,
+      23
+    ]
+  },
+  {
+    "name": "Полиолефиновый пакет",
+    "purpose": "Упаковка при стерилизации блока головки камеры в системе V-PRO.",
+    "relatedRowNumbers": [
+      14
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      22,
+      23
+    ]
+  }
+]
