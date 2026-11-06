@@ -1,0 +1,103 @@
+[
+  {
+    "name": "Ферментативный моющий раствор с нейтральным pH (pH 6.0-8.0, например Enzol, Metrizyme)",
+    "purpose": "Замачивание и удаление органических загрязнений с блока головки камеры и кабеля",
+    "relatedRowNumbers": [
+      2
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      16,
+      17,
+      19
+    ]
+  },
+  {
+    "name": "70%-ный изопропиловый спирт",
+    "purpose": "Очистка контактных поверхностей разъема и стеклянных поверхностей",
+    "relatedRowNumbers": [
+      2,
+      3
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      19,
+      35
+    ]
+  },
+  {
+    "name": "Дезинфицирующий раствор CIDEX (2,4% глутаровый альдегид)",
+    "purpose": "Высокого уровня дезинфекция (HLD) блока головки камеры",
+    "relatedRowNumbers": [
+      3
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      24,
+      33,
+      34
+    ]
+  },
+  {
+    "name": "Дезинфицирующий раствор Resert XL HLD (2,0% перекись водорода)",
+    "purpose": "Высокого уровня дезинфекция (HLD) блока головки камеры",
+    "relatedRowNumbers": [
+      3
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      33,
+      34,
+      35
+    ]
+  },
+  {
+    "name": "Стерильная или дистиллированная вода",
+    "purpose": "Промывка блока головки камеры после дезинфекции/очистки",
+    "relatedRowNumbers": [
+      2,
+      3
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      19,
+      35
+    ]
+  },
+  {
+    "name": "Нетканая стерильная салфетка",
+    "purpose": "Сушка блока головки камеры, кабеля и разъема",
+    "relatedRowNumbers": [
+      2,
+      3
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      19,
+      35
+    ]
+  },
+  {
+    "name": "Ватные тампоны",
+    "purpose": "Очистка световых входов/выходов и стеклянных поверхностей",
+    "relatedRowNumbers": [
+      2
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      16
+    ]
+  },
+  {
+    "name": "Полипропиленовые стерилизационные чехлы",
+    "purpose": "Упаковка блока головки камеры для стерилизации",
+    "relatedRowNumbers": [
+      4
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      26,
+      31
+    ]
+  }
+]

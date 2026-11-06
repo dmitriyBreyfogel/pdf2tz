@@ -10,6 +10,7 @@ import com.pdf2tz.backend.error.ErrorCode;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class MaintenancePlanService {
@@ -17,13 +18,16 @@ public class MaintenancePlanService {
     private final RouterAiClient routerAiClient;
     private final MaintenanceChunkSelector chunkSelector;
     private final MaintenancePlanResponseNormalizer responseNormalizer;
+    private final MaintenancePlanDiagnosticsProperties diagnosticsProperties;
 
     public MaintenancePlanService(PdfChunkingPipeline chunkingPipeline, RouterAiClient routerAiClient,
-                                  MaintenanceChunkSelector chunkSelector, MaintenancePlanResponseNormalizer responseNormalizer) {
+                                  MaintenanceChunkSelector chunkSelector, MaintenancePlanResponseNormalizer responseNormalizer,
+                                  MaintenancePlanDiagnosticsProperties diagnosticsProperties) {
         this.chunkingPipeline = chunkingPipeline;
         this.routerAiClient = routerAiClient;
         this.chunkSelector = chunkSelector;
         this.responseNormalizer = responseNormalizer;
+        this.diagnosticsProperties = diagnosticsProperties;
     }
 
     public JsonNode generate(byte[] pdf, String modelCode) {
@@ -33,7 +37,15 @@ public class MaintenancePlanService {
         ChunkedDocument document = chunkingPipeline.chunk(pdf);
         String context = select(document.chunks());
         JsonNode plan = routerAiClient.generate(model, instruction(), context);
-        return responseNormalizer.normalize(plan);
+        try {
+            return responseNormalizer.normalize(plan);
+        } catch (AppException exception) {
+            if (!diagnosticsProperties.includeInvalidResponse() || exception.getCode() != ErrorCode.LLM_INVALID_RESPONSE) {
+                throw exception;
+            }
+            throw AppException.build(ErrorCode.LLM_INVALID_RESPONSE, exception.getMessage(),
+                    Map.of("modelCode", model.routerAiId(), "providerResponse", plan));
+        }
     }
 
     private String select(List<DocumentChunk> chunks) {
@@ -59,9 +71,11 @@ public class MaintenancePlanService {
 
                 Для каждой строки и каждого расходника укажи sourcePages только из маркеров PAGES переданных фрагментов. Номера строк должны быть уникальными положительными целыми числами.
 
-                Верни только JSON, без Markdown, комментариев и пояснений. Строго соблюдай эту форму: {"sections":[{"name":"...","rows":[{"number":1,"deviceName":"...","maintenanceType":"...","maintenanceWorkDescription":["шаг 1","шаг 2"],"registrationNumber":null,"inventoryNumber":null,"frequency":"...","sourcePages":[1]}]}],"consumables":[{"name":"...","purpose":"...","relatedRowNumbers":[1],"consumptionRate":null,"sourcePages":[1]}]}. Никогда не помещай строки напрямую в sections: каждая секция обязана иметь name и массив rows. maintenanceWorkDescription, sourcePages и relatedRowNumbers всегда массивы; number и номера страниц всегда числа, а не строки.
+                Ответ разбирается программой без участия человека: соблюдение JSON-контракта — обязательная часть задачи. Верни только один JSON-объект, без Markdown, комментариев, пояснений, обёрток или текста до и после JSON. Корневой объект содержит РОВНО два поля: sections и consumables. Не переименовывай поля, не добавляй поля и не пропускай ни одного обязательного поля, даже когда его значение неизвестно: для registrationNumber и consumptionRate используй null; для отсутствующих расходников используй пустой массив consumables.
 
-                Перед ответом молча проверь: JSON разбирается; есть только sections и consumables; все секции содержат rows; каждая строка и каждый расходник имеют все поля указанной формы; inventoryNumber равен null; все ссылки relatedRowNumbers существуют; в ответе нет неподтверждённых сведений.
+                Строго соблюдай эту форму: {"sections":[{"name":"...","rows":[{"number":1,"deviceName":"...","maintenanceType":"...","maintenanceWorkDescription":["шаг 1","шаг 2"],"registrationNumber":null,"inventoryNumber":null,"frequency":"...","sourcePages":[1]}]}],"consumables":[{"name":"...","purpose":"...","relatedRowNumbers":[1],"consumptionRate":null,"sourcePages":[1]}]}. Никогда не помещай строки напрямую в sections: каждая секция обязана иметь непустой name и непустой массив rows. У каждой строки обязательны РОВНО поля number, deviceName, maintenanceType, maintenanceWorkDescription, registrationNumber, inventoryNumber, frequency, sourcePages. У каждого расходника обязательны РОВНО поля name, purpose, relatedRowNumbers, consumptionRate, sourcePages. maintenanceWorkDescription, sourcePages и relatedRowNumbers всегда массивы; number, relatedRowNumbers и номера страниц всегда положительные целые числа, а не строки. maintenanceWorkDescription и sourcePages не бывают пустыми. inventoryNumber всегда именно null, не строка и не число.
+
+                Перед отправкой молча проверь весь ответ: JSON разбирается; есть только sections и consumables; все секции содержат rows; каждая строка и каждый расходник имеют все поля указанной формы и корректные типы; inventoryNumber равен null; номера строк уникальны и положительны; все ссылки relatedRowNumbers существуют; в ответе нет неподтверждённых сведений. Не отправляй частичный JSON: сначала закончи проверку, затем выведи весь JSON одним сообщением.
                 """;
     }
 }

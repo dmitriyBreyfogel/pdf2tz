@@ -1,0 +1,196 @@
+[
+  {
+    "name": "Ферментативный моющий раствор с нейтральным pH (6,0-8,0)",
+    "purpose": "Замачивание и очистка",
+    "relatedRowNumbers": [
+      1,
+      2
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      16,
+      17
+    ]
+  },
+  {
+    "name": "Дистиллированная вода",
+    "purpose": "Мытье, ополаскивание, приготовление раствора",
+    "relatedRowNumbers": [
+      2
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      16,
+      17
+    ]
+  },
+  {
+    "name": "Мягкая щетка",
+    "purpose": "Удаление загрязнений",
+    "relatedRowNumbers": [
+      2,
+      9
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      16,
+      17
+    ]
+  },
+  {
+    "name": "Безворсовая мягкая салфетка / стерильная салфетка",
+    "purpose": "Высушивание",
+    "relatedRowNumbers": [
+      2,
+      7
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      17,
+      18,
+      25,
+      26
+    ]
+  },
+  {
+    "name": "70%-ный изопропиловый спирт",
+    "purpose": "Протирка коннектора и стеклянных поверхностей",
+    "relatedRowNumbers": [
+      2
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      15,
+      16,
+      17,
+      18
+    ]
+  },
+  {
+    "name": "Ватный тампон / палочка",
+    "purpose": "Очистка стекла и коннектора",
+    "relatedRowNumbers": [
+      2
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      15,
+      16,
+      17
+    ]
+  },
+  {
+    "name": "Окись этилена (EtO)",
+    "purpose": "Стерилизация",
+    "relatedRowNumbers": [
+      4
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      19,
+      20
+    ]
+  },
+  {
+    "name": "Стерилизационная сетка / лоток",
+    "purpose": "Размещение при стерилизации",
+    "relatedRowNumbers": [
+      4,
+      5,
+      6
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      19,
+      20,
+      21,
+      22,
+      23,
+      24
+    ]
+  },
+  {
+    "name": "Стерильный чехол",
+    "purpose": "Защита во время операций",
+    "relatedRowNumbers": [
+      10
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      18,
+      26
+    ]
+  },
+  {
+    "name": "CIDEX (2,4% раствор глутарового альдегида)",
+    "purpose": "Дезинфекция высокого уровня",
+    "relatedRowNumbers": [
+      7
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      14,
+      15,
+      23,
+      24,
+      25,
+      26
+    ]
+  },
+  {
+    "name": "Resert XL HLD (2,0% раствор пероксида водорода)",
+    "purpose": "Дезинфекция высокого уровня",
+    "relatedRowNumbers": [
+      7
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      14,
+      15,
+      23,
+      24,
+      25,
+      26
+    ]
+  },
+  {
+    "name": "Стерильная вода",
+    "purpose": "Промывание после дезинфекции",
+    "relatedRowNumbers": [
+      7
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      25,
+      26
+    ]
+  },
+  {
+    "name": "Химическая тестовая полоска Verify*",
+    "purpose": "Контроль концентрации дезинфектанта",
+    "relatedRowNumbers": [
+      7
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      23,
+      24,
+      25
+    ]
+  },
+  {
+    "name": "Полипропиленовые стерилизационные чехлы и полиолефиновые пакеты",
+    "purpose": "Упаковка при стерилизации",
+    "relatedRowNumbers": [
+      5,
+      6
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      21,
+      22,
+      23,
+      24
+    ]
+  }
+]

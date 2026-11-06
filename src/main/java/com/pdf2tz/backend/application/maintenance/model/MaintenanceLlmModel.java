@@ -12,7 +12,7 @@ import java.util.Arrays;
 public enum MaintenanceLlmModel {
     GIGACHAT_ULTRA("sber/gigachat-3.5-ultra", "GigaChat 3.5 Ultra", "Сбер", true, 20000),
     YANDEX_GPT_LITE("yandex/gpt-lite-5", "YandexGPT Lite 5", "Яндекс", false, 20000),
-    DEEPSEEK_FLASH("deepseek/deepseek-v4.1-flash", "DeepSeek V4.1 Flash", "DeepSeek", true, 20000),
+    GPT_LUNA("openai/gpt-5.6-luna", "GPT-5.6 Luna", "OpenAI", true, 20000),
     QWEN_397B("qwen/qwen3.5-397b-a17b", "Qwen 3.5 397B A17B", "Qwen", true, 20000),
     GPT_TERRA("openai/gpt-6.1-terra", "GPT-6.1 Terra", "OpenAI", true, 20000),
     CLAUDE_SONNET("anthropic/claude-sonnet-5.5", "Claude Sonnet 5.5", "Anthropic", true, 20000);

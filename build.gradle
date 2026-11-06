@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'com.pdf2tz'
-version = '0.4.1'
+version = '0.5.0'
 description = 'pdf2tz'
 
 java {
@@ -33,6 +33,7 @@ dependencies {
     implementation("com.github.lanit-exp:tabula:1.0.0")
     implementation("com.ibm.icu:icu4j:78.3")
     implementation("com.knuddels:jtokkit:1.1.0")
+    implementation 'org.apache.poi:poi-ooxml:5.4.1'
     implementation 'com.microsoft.onnxruntime:onnxruntime:1.31.1'
     implementation 'ai.djl.huggingface:tokenizers:0.40.0'
     testImplementation 'org.springframework.boot:spring-boot-starter-data-jdbc-test'
