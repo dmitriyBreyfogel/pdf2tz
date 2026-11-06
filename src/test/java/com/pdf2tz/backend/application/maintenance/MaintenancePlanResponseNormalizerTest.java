@@ -12,6 +12,19 @@ class MaintenancePlanResponseNormalizerTest {
     private final MaintenancePlanResponseNormalizer normalizer = new MaintenancePlanResponseNormalizer();
 
     @Test
+    void renumbersRowsSequentiallyAndRemapsConsumableLinks() throws Exception {
+        var response = mapper.readTree("""
+                {"sections":[{"name":"Работы","rows":[{"number":2,"deviceName":"Прибор","maintenanceType":"Очистка","maintenanceWorkDescription":["Протереть."],"registrationNumber":null,"inventoryNumber":null,"frequency":"Еженедельно","sourcePages":[1]},{"number":5,"deviceName":"Прибор","maintenanceType":"Осмотр","maintenanceWorkDescription":["Осмотреть."],"registrationNumber":null,"inventoryNumber":null,"frequency":"Ежегодно","sourcePages":[2]}]}],"consumables":[{"name":"Салфетка","purpose":"Осмотр.","relatedRowNumbers":[5],"consumptionRate":null,"sourcePages":[2]}]}
+                """);
+
+        var plan = normalizer.normalize(response);
+
+        assertEquals(1, plan.at("/sections/0/rows/0/number").asInt());
+        assertEquals(2, plan.at("/sections/0/rows/1/number").asInt());
+        assertEquals(2, plan.at("/consumables/0/relatedRowNumbers/0").asInt());
+    }
+
+    @Test
     void normalizesFlatProviderRowsWithoutChangingMaintenanceFacts() throws Exception {
         var response = mapper.readTree("""
                 {"sections":[{"number":"1","deviceName":"Прибор","maintenanceType":"Очистка","maintenanceWorkDescription":"Протереть корпус.","registrationNumber":null,"inventoryNumber":"A-1","frequency":"Еженедельно","sourcePages":"23-24"}],"consumables":[{"name":"Салфетка","purpose":"Очистка корпуса.","relatedRowNumbers":"1","consumptionRate":null,"sourcePages":"24"}]}

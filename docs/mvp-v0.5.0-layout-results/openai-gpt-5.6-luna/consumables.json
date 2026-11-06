@@ -1,0 +1,94 @@
+[
+  {
+    "name": "Ферментативный моющий раствор с нейтральным pH",
+    "purpose": "Замачивание и очистка блока головки камеры; pH 6,0–8,0.",
+    "relatedRowNumbers": [
+      1,
+      2,
+      3
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      16,
+      17
+    ]
+  },
+  {
+    "name": "Дистиллированная вода",
+    "purpose": "Промывание и ополаскивание блока головки камеры при очистке.",
+    "relatedRowNumbers": [
+      2
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      17
+    ]
+  },
+  {
+    "name": "Изопропиловый спирт 70%",
+    "purpose": "Удаление остатков моющего средства с разъёма и очистка стеклянных поверхностей.",
+    "relatedRowNumbers": [
+      2,
+      3
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      16,
+      17
+    ]
+  },
+  {
+    "name": "Ватный аппликатор или тампон",
+    "purpose": "Нанесение спирта при очистке стеклянных поверхностей и открытых участков прибора.",
+    "relatedRowNumbers": [
+      2,
+      3
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      15,
+      17
+    ]
+  },
+  {
+    "name": "Безворсовая нетканая салфетка",
+    "purpose": "Высушивание блока головки камеры после очистки.",
+    "relatedRowNumbers": [
+      2
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      17
+    ]
+  },
+  {
+    "name": "Окись этилена",
+    "purpose": "Стерилизующий агент для стерилизации блока головки камеры методом ЭО.",
+    "relatedRowNumbers": [
+      8
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      19,
+      20
+    ]
+  },
+  {
+    "name": "Пероксид водорода",
+    "purpose": "Стерилизующий агент для стерилизации блока головки камеры в системах STERRAD и V-PRO.",
+    "relatedRowNumbers": [
+      9,
+      10,
+      11,
+      12,
+      13
+    ],
+    "consumptionRate": null,
+    "sourcePages": [
+      14,
+      20,
+      21,
+      22
+    ]
+  }
+]
