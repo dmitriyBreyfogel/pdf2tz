@@ -8,11 +8,13 @@ import com.pdf2tz.backend.application.pdf.model.chunk.DocumentChunk;
 import com.pdf2tz.backend.application.pdf.model.document.PageRange;
 import com.pdf2tz.backend.application.pdf.model.structure.SectionPath;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -33,7 +35,10 @@ class MaintenancePlanServiceTest {
         var result = new MaintenancePlanService(pipeline, client, new MaintenanceChunkSelector(chunks -> Set.of()), new MaintenancePlanResponseNormalizer()).generate(new byte[]{1}, "deepseek/deepseek-v4.1-flash");
 
         assertEquals(true, result.path("sections").path(0).path("rows").path(0).path("inventoryNumber").isNull());
-        verify(client).generate(eq(MaintenanceLlmModel.DEEPSEEK_FLASH), anyString(), contains("CHUNK 2"));
+        var instruction = ArgumentCaptor.forClass(String.class);
+        verify(client).generate(eq(MaintenanceLlmModel.DEEPSEEK_FLASH), instruction.capture(), contains("CHUNK 2"));
         verify(client, never()).generate(any(), anyString(), contains("CHUNK 1"));
+        assertTrue(instruction.getValue().contains("Корневой объект содержит РОВНО два поля: sections и consumables"));
+        assertTrue(instruction.getValue().contains("Не отправляй частичный JSON"));
     }
 }
