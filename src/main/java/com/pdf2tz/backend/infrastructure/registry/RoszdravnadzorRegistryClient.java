@@ -11,6 +11,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -63,7 +64,8 @@ public class RoszdravnadzorRegistryClient implements RegistrationRegistryClient 
             result.add(new RegistrationRegistryRecord(
                     record.path("id").asLong(), number, name,
                     text(record.path("producer"), "name"),
-                    "active".equalsIgnoreCase(text(record.path("status"), "code"))
+                    "active".equalsIgnoreCase(text(record.path("status"), "code")),
+                    date(record, "endDateRu")
             ));
         }
         return result;
@@ -72,6 +74,15 @@ public class RoszdravnadzorRegistryClient implements RegistrationRegistryClient 
     private String text(JsonNode node, String field) {
         JsonNode value = node.path(field);
         return value.isTextual() && !value.asText().isBlank() ? value.asText() : null;
+    }
+
+    private LocalDate date(JsonNode node, String field) {
+        String value = text(node, field);
+        try {
+            return value == null ? null : LocalDate.parse(value);
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
 }

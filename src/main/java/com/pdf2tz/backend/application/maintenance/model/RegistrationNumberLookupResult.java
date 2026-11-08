@@ -1,6 +1,7 @@
 package com.pdf2tz.backend.application.maintenance.model;
 
 import java.time.Instant;
+import java.time.LocalDate;
 
 /**
  * A traceable result of matching one device identity against the public registry.
@@ -16,9 +17,10 @@ public record RegistrationNumberLookupResult(
         String registryName,
         String producer,
         String sourceUrl,
+        LocalDate expirationDate,
         Instant checkedAt
 ) {
     public static RegistrationNumberLookupResult unavailable(RegistrationNumberLookupStatus status, String query) {
-        return new RegistrationNumberLookupResult(status, null, query, null, null, null, Instant.now());
+        return new RegistrationNumberLookupResult(status, null, query, null, null, null, null, Instant.now());
     }
 }
