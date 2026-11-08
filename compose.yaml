@@ -1,0 +1,23 @@
+services:
+  backend:
+    build:
+      context: .
+    env_file:
+      - .env
+    environment:
+      PDF2TZ_EMBEDDING_MODEL_PATH: /models/bge-m3
+    volumes:
+      - type: bind
+        source: ${PDF2TZ_EMBEDDING_MODEL_HOST_PATH:-./.local/models/bge-m3}
+        target: /models/bge-m3
+        read_only: true
+    expose:
+      - "8081"
+
+  frontend:
+    build:
+      context: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
