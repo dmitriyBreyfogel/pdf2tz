@@ -2,6 +2,8 @@ package com.pdf2tz.backend.application.maintenance;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pdf2tz.backend.application.maintenance.model.MaintenanceLlmModel;
+import com.pdf2tz.backend.application.maintenance.model.RegistrationNumberLookupResult;
+import com.pdf2tz.backend.application.maintenance.model.RegistrationNumberLookupStatus;
 import com.pdf2tz.backend.application.pdf.PdfChunkingPipeline;
 import com.pdf2tz.backend.application.pdf.model.chunk.ChunkedDocument;
 import com.pdf2tz.backend.application.pdf.model.chunk.DocumentChunk;
@@ -31,8 +33,15 @@ class MaintenancePlanServiceTest {
                 {"sections":[{"name":"x","rows":[{"number":1,"deviceName":"Прибор","maintenanceType":"Очистка","maintenanceWorkDescription":["Очистить."],"registrationNumber":null,"inventoryNumber":"forbidden","frequency":"Еженедельно","sourcePages":[14]}]}],"consumables":[]}
                 """);
         when(client.generate(eq(MaintenanceLlmModel.GPT_LUNA), anyString(), anyString())).thenReturn(expected);
+        RegistrationNumberLookupService lookupService = mock(RegistrationNumberLookupService.class);
+        when(lookupService.lookup(anyList())).thenReturn(new RegistrationNumberLookupResult(
+                RegistrationNumberLookupStatus.NOT_FOUND, null, "Прибор", null, null, null, java.time.Instant.now()
+        ));
 
-        var result = new MaintenancePlanService(pipeline, client, new MaintenanceChunkSelector(chunks -> Set.of()), new MaintenancePlanResponseNormalizer(), new MaintenancePlanDiagnosticsProperties()).generate(new byte[]{1}, "openai/gpt-5.6-luna");
+        var result = new MaintenancePlanService(
+                pipeline, client, new MaintenanceChunkSelector(chunks -> Set.of()), new MaintenancePlanResponseNormalizer(),
+                new MaintenancePlanDiagnosticsProperties(), lookupService, new RegistrationNumberPlanEnricher()
+        ).generate(new byte[]{1}, "openai/gpt-5.6-luna");
 
         assertEquals(true, result.path("sections").path(0).path("rows").path(0).path("inventoryNumber").isNull());
         var instruction = ArgumentCaptor.forClass(String.class);
@@ -48,5 +57,6 @@ class MaintenancePlanServiceTest {
         assertTrue(instruction.getValue().contains("прямо обозначен как применимый к Российской Федерации"));
         assertTrue(instruction.getValue().contains("не угадывай применимый режим"));
         assertTrue(instruction.getValue().contains("короткое основное наименование медицинского изделия"));
+        assertTrue(instruction.getValue().contains("registrationNumber всегда возвращай null"));
     }
 }
