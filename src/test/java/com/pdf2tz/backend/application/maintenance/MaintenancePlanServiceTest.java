@@ -35,7 +35,7 @@ class MaintenancePlanServiceTest {
         when(client.generate(eq(MaintenanceLlmModel.GPT_LUNA), anyString(), anyString())).thenReturn(expected);
         RegistrationNumberLookupService lookupService = mock(RegistrationNumberLookupService.class);
         when(lookupService.lookup(anyList())).thenReturn(new RegistrationNumberLookupResult(
-                RegistrationNumberLookupStatus.NOT_FOUND, null, "Прибор", null, null, null, java.time.Instant.now()
+                RegistrationNumberLookupStatus.NOT_FOUND, null, "Прибор", null, null, null, null, java.time.Instant.now()
         ));
 
         var result = new MaintenancePlanService(

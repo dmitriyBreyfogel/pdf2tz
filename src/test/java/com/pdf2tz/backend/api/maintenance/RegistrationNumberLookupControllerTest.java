@@ -27,7 +27,7 @@ class RegistrationNumberLookupControllerTest {
         when(uploadReader.read(any())).thenReturn(new byte[]{1});
         when(chunkingPipeline.chunk(any())).thenReturn(new ChunkedDocument(List.of()));
         when(lookupService.lookup(anyList())).thenReturn(new RegistrationNumberLookupResult(
-                RegistrationNumberLookupStatus.NOT_FOUND, null, "FT10", null, null, null, Instant.now()
+                RegistrationNumberLookupStatus.NOT_FOUND, null, "FT10", null, null, null, null, Instant.now()
         ));
 
         var response = new RegistrationNumberLookupController(uploadReader, chunkingPipeline, lookupService)

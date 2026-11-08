@@ -15,7 +15,7 @@ class RegistrationNumberLookupServiceTest {
     void returnsOnlyOneActiveExactRegistryMatchAndCachesIt() {
         RegistrationRegistryClient client = mock(RegistrationRegistryClient.class);
         when(client.search("Valleylab FT10")).thenReturn(List.of(
-                new RegistrationRegistryRecord(204251L, " РЗН   2017/5614 ", "Платформа энергетическая серии FT Valleylab FT10 с принадлежностями", "Covidien", true)
+                new RegistrationRegistryRecord(204251L, " РЗН   2017/5614 ", "Платформа энергетическая серии FT Valleylab FT10 с принадлежностями", "Covidien", true, null)
         ));
         RegistrationNumberLookupService service = service(client);
 
@@ -32,9 +32,9 @@ class RegistrationNumberLookupServiceTest {
     void refusesAmbiguousOrExpiredRegistryRecords() {
         RegistrationRegistryClient client = mock(RegistrationRegistryClient.class);
         when(client.search("XENON NOVA")).thenReturn(List.of(
-                new RegistrationRegistryRecord(1L, "ФС 2006/1364", "Источник света XENON NOVA", "Karl Storz", false),
-                new RegistrationRegistryRecord(2L, "РЗН 2020/1", "Источник света XENON NOVA", "Karl Storz", true),
-                new RegistrationRegistryRecord(3L, "РЗН 2021/2", "Источник света XENON NOVA", "Karl Storz", true)
+                new RegistrationRegistryRecord(1L, "ФС 2006/1364", "Источник света XENON NOVA", "Karl Storz", false, java.time.LocalDate.of(2016, 8, 31)),
+                new RegistrationRegistryRecord(2L, "РЗН 2020/1", "Источник света XENON NOVA", "Karl Storz", true, null),
+                new RegistrationRegistryRecord(3L, "РЗН 2021/2", "Источник света XENON NOVA", "Karl Storz", true, null)
         ));
 
         var result = service(client).lookup("Cold light fountain XENON NOVA");
@@ -47,8 +47,8 @@ class RegistrationNumberLookupServiceTest {
     void acceptsAUniqueActiveSearchResultWhenTheCurrentRegistryTitleOmitsTheModel() {
         RegistrationRegistryClient client = mock(RegistrationRegistryClient.class);
         when(client.search("Arthropump")).thenReturn(List.of(
-                new RegistrationRegistryRecord(5L, "ФСЗ 2011/09541", "Помпа эндоскопическая Karl Storz, с принадлежностями", "Karl Storz", true),
-                new RegistrationRegistryRecord(6L, "МЗ РФ № 2002/188", "Эндоскопическое оборудование", "Karl Storz", false)
+                new RegistrationRegistryRecord(5L, "ФСЗ 2011/09541", "Помпа эндоскопическая Karl Storz, с принадлежностями", "Karl Storz", true, null),
+                new RegistrationRegistryRecord(6L, "МЗ РФ № 2002/188", "Эндоскопическое оборудование", "Karl Storz", false, null)
         ));
 
         var result = service(client).lookup("Помпа эндоскопическая Karl Storz, Arthropump с принадлежностями");
@@ -63,6 +63,20 @@ class RegistrationNumberLookupServiceTest {
                 .extractQuery("Помпа эндоскопическая Karl Storz, Arthropump с принадлежностями. "
                         + "Karl Storz GmbH, MittelstraPe 8, D-78532 Tuttlingen")
                 .orElseThrow());
+    }
+
+    @Test
+    void returnsAUniqueExpiredRecordWithItsExpiryDateWhenNoActiveRecordExists() {
+        RegistrationRegistryClient client = mock(RegistrationRegistryClient.class);
+        when(client.search("XENON NOVA")).thenReturn(List.of(
+                new RegistrationRegistryRecord(1L, "ФС 2006/1364", "Источник света XENON NOVA", "Karl Storz", false, java.time.LocalDate.of(2016, 8, 31))
+        ));
+
+        var result = service(client).lookup("Cold light fountain XENON NOVA");
+
+        assertEquals(RegistrationNumberLookupStatus.EXPIRED, result.status());
+        assertEquals("ФС 2006/1364", result.registrationNumber());
+        assertEquals(java.time.LocalDate.of(2016, 8, 31), result.expirationDate());
     }
 
     private RegistrationNumberLookupService service(RegistrationRegistryClient client) {
