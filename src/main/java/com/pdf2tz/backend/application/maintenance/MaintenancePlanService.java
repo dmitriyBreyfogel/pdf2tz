@@ -19,15 +19,21 @@ public class MaintenancePlanService {
     private final MaintenanceChunkSelector chunkSelector;
     private final MaintenancePlanResponseNormalizer responseNormalizer;
     private final MaintenancePlanDiagnosticsProperties diagnosticsProperties;
+    private final RegistrationNumberLookupService registrationNumberLookupService;
+    private final RegistrationNumberPlanEnricher registrationNumberPlanEnricher;
 
     public MaintenancePlanService(PdfChunkingPipeline chunkingPipeline, RouterAiClient routerAiClient,
                                   MaintenanceChunkSelector chunkSelector, MaintenancePlanResponseNormalizer responseNormalizer,
-                                  MaintenancePlanDiagnosticsProperties diagnosticsProperties) {
+                                  MaintenancePlanDiagnosticsProperties diagnosticsProperties,
+                                  RegistrationNumberLookupService registrationNumberLookupService,
+                                  RegistrationNumberPlanEnricher registrationNumberPlanEnricher) {
         this.chunkingPipeline = chunkingPipeline;
         this.routerAiClient = routerAiClient;
         this.chunkSelector = chunkSelector;
         this.responseNormalizer = responseNormalizer;
         this.diagnosticsProperties = diagnosticsProperties;
+        this.registrationNumberLookupService = registrationNumberLookupService;
+        this.registrationNumberPlanEnricher = registrationNumberPlanEnricher;
     }
 
     public JsonNode generate(byte[] pdf, String modelCode) {
@@ -38,7 +44,10 @@ public class MaintenancePlanService {
         String context = select(document.chunks());
         JsonNode plan = routerAiClient.generate(model, instruction(), context);
         try {
-            return responseNormalizer.normalize(plan);
+            return registrationNumberPlanEnricher.apply(
+                    responseNormalizer.normalize(plan),
+                    registrationNumberLookupService.lookup(document.chunks())
+            );
         } catch (AppException exception) {
             if (!diagnosticsProperties.includeInvalidResponse() || exception.getCode() != ErrorCode.LLM_INVALID_RESPONSE) {
                 throw exception;
@@ -69,7 +78,7 @@ public class MaintenancePlanService {
 
                 maintenanceWorkDescription — понятная исполнителю, подробная, но компактная инструкция, а не краткое название работы. Сохрани все практически значимые сведения из фрагментов: подготовку и доступ к детали, снятие и установку элементов, порядок действий, разрешённые средства и инструменты, параметры и усилия, ограничения, запреты, меры предосторожности, признаки корректного результата, сборку и проверку после работы. Не теряй относящиеся к работе сведения, но не пересказывай не относящееся к ней содержание инструкции.
 
-                Если сама работа подтверждена, но её периодичность в переданных фрагментах не названа, сохрани работу с frequency ровно "Не указана в инструкции". Не придумывай периодичность. registrationNumber заполняй только если он явно указан в фрагментах, иначе null. inventoryNumber всегда возвращай null: не ищи и не заполняй инвентарный номер.
+                Если сама работа подтверждена, но её периодичность в переданных фрагментах не названа, сохрани работу с frequency ровно "Не указана в инструкции". Не придумывай периодичность. registrationNumber всегда возвращай null: регистрационный номер при необходимости устанавливает отдельный проверяемый сервис по данным официального реестра. inventoryNumber всегда возвращай null: не ищи и не заполняй инвентарный номер.
 
                 Расходник — расходуемый материал, одноразовое изделие, жидкость, реагент или заменяемый элемент, который прямо требуется для подтверждённой работы. Не добавляй расходник по догадке. Не включай многоразовый инструмент или часть прибора, если инструкция не предписывает её замену. Расходники не дублируй в строках ТЗ: верни их только в consumables. consumptionRate указывай только при явно названной норме или условии расхода, иначе null. relatedRowNumbers должны ссылаться на номера связанных строк. Перед ответом обязательно пройди каждое описание работ: каждый явно упомянутый в нём требуемый расходуемый материал должен иметь одну связанную запись в consumables. Если описание содержит моющее или дезинфицирующее средство, воду, спирт, салфетку, ткань, ватный аппликатор, тест-полоску, упаковку, стерилизационный агент либо иной прямо требуемый расходный материал, пустой consumables недопустим.
 
