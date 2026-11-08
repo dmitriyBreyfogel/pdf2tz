@@ -62,28 +62,39 @@ public class RegistrationNumberLookupService {
     }
 
     private RegistrationNumberLookupResult choose(String query, List<RegistrationRegistryRecord> records) {
-        List<RegistrationRegistryRecord> active = records.stream()
-                .filter(RegistrationRegistryRecord::active)
+        List<RegistrationRegistryRecord> candidates = candidates(records.stream().filter(RegistrationRegistryRecord::active).toList(), query);
+        if (candidates.size() == 1) {
+            return found(query, candidates.get(0), RegistrationNumberLookupStatus.FOUND);
+        }
+        if (candidates.size() != 1) {
+            if (!candidates.isEmpty()) {
+                return RegistrationNumberLookupResult.unavailable(RegistrationNumberLookupStatus.AMBIGUOUS, query);
+            }
+        }
+        List<RegistrationRegistryRecord> expired = candidates(records.stream().filter(record -> !record.active()).toList(), query);
+        if (expired.size() == 1) {
+            return found(query, expired.get(0), RegistrationNumberLookupStatus.EXPIRED);
+        }
+        return RegistrationNumberLookupResult.unavailable(expired.isEmpty() ? RegistrationNumberLookupStatus.NOT_FOUND : RegistrationNumberLookupStatus.AMBIGUOUS, query);
+    }
+
+    private List<RegistrationRegistryRecord> candidates(List<RegistrationRegistryRecord> records, String query) {
+        List<RegistrationRegistryRecord> sorted = records.stream()
                 .sorted(Comparator.comparingLong(RegistrationRegistryRecord::id).reversed())
                 .toList();
-        List<RegistrationRegistryRecord> exactActive = active.stream()
-                .filter(record -> containsAllQueryTokens(record.name(), query))
-                .toList();
-        List<RegistrationRegistryRecord> candidates = exactActive.isEmpty() ? active : exactActive;
-        if (candidates.size() != 1) {
-            return RegistrationNumberLookupResult.unavailable(
-                    candidates.isEmpty() ? RegistrationNumberLookupStatus.NOT_FOUND : RegistrationNumberLookupStatus.AMBIGUOUS,
-                    query
-            );
-        }
-        RegistrationRegistryRecord record = candidates.get(0);
+        List<RegistrationRegistryRecord> exact = sorted.stream().filter(record -> containsAllQueryTokens(record.name(), query)).toList();
+        return exact.isEmpty() ? sorted : exact;
+    }
+
+    private RegistrationNumberLookupResult found(String query, RegistrationRegistryRecord record, RegistrationNumberLookupStatus status) {
         return new RegistrationNumberLookupResult(
-                RegistrationNumberLookupStatus.FOUND,
+                status,
                 normalizeNumber(record.registrationNumber()),
                 query,
                 record.name(),
                 record.producer(),
                 properties.getBaseUrl() + CARD_URL + record.id(),
+                record.expirationDate(),
                 Instant.now()
         );
     }

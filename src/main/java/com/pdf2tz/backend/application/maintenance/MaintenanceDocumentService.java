@@ -39,7 +39,7 @@ public class MaintenanceDocumentService {
         try (XWPFDocument document = new XWPFDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             configurePage(document);
             String deviceName = deviceName(plan);
-            String registrationNumber = registrationNumber(plan);
+            RegistrationDetails registration = registration(plan);
             paragraph(document, "Перечень услуг по техническому обслуживанию медицинского изделия: " + deviceName,
                     ParagraphAlignment.CENTER, 10, true);
             XWPFTable table = document.createTable(1, WIDTHS.length);
@@ -48,7 +48,7 @@ public class MaintenanceDocumentService {
             int firstWorkRow = table.getNumberOfRows();
             for (JsonNode section : plan.path("sections")) {
                 for (JsonNode row : section.path("rows")) {
-                    writeWork(table, row, deviceName, registrationNumber);
+                    writeWork(table, row, deviceName, registration);
                 }
             }
             mergeCommonDeviceColumns(table, firstWorkRow);
@@ -89,12 +89,12 @@ public class MaintenanceDocumentService {
         for (int index = 0; index < headings.length; index++) cell(row.getCell(index), headings[index], 8, true, ParagraphAlignment.CENTER);
     }
 
-    private void writeWork(XWPFTable table, JsonNode work, String deviceName, String registrationNumber) {
+    private void writeWork(XWPFTable table, JsonNode work, String deviceName, RegistrationDetails registration) {
         XWPFTableRow row = table.createRow();
         cell(row.getCell(0), work.path("number").asText(), 8, false, ParagraphAlignment.CENTER);
         cell(row.getCell(1), deviceName, 8, false, ParagraphAlignment.LEFT);
         workCell(row.getCell(2), work);
-        cell(row.getCell(3), registrationNumber, 8, false, ParagraphAlignment.CENTER);
+        registrationCell(row.getCell(3), registration);
         cell(row.getCell(4), "", 8, false, ParagraphAlignment.CENTER);
         cell(row.getCell(5), work.path("frequency").asText(), 8, false, ParagraphAlignment.CENTER);
     }
@@ -149,16 +149,26 @@ public class MaintenanceDocumentService {
         throw new IllegalArgumentException("План ТЗ не содержит наименование медицинского изделия");
     }
 
-    private String registrationNumber(JsonNode plan) {
+    private void registrationCell(XWPFTableCell cell, RegistrationDetails registration) {
+        clear(cell);
+        applyMargins(cell);
+        cell.setVerticalAlignment(XWPFTableCell.XWPFVertAlign.CENTER);
+        paragraph(cell, registration.number(), ParagraphAlignment.CENTER, 8, false);
+        if (!registration.expiryNotice().isBlank()) {
+            paragraph(cell, registration.expiryNotice(), ParagraphAlignment.CENTER, 7, false);
+        }
+    }
+
+    private RegistrationDetails registration(JsonNode plan) {
         for (JsonNode section : plan.path("sections")) {
             for (JsonNode row : section.path("rows")) {
                 JsonNode registrationNumber = row.path("registrationNumber");
                 if (!registrationNumber.isNull() && !registrationNumber.asText().isBlank()) {
-                    return registrationNumber.asText().trim();
+                    return new RegistrationDetails(registrationNumber.asText().trim(), row.path("registrationNumberExpiryNotice").asText(""));
                 }
             }
         }
-        return "";
+        return new RegistrationDetails("", "");
     }
 
     private void mergeCommonDeviceColumns(XWPFTable table, int firstWorkRow) {
@@ -189,4 +199,6 @@ public class MaintenanceDocumentService {
         value.setType(STTblWidth.DXA);
         value.setW(BigInteger.valueOf(width));
     }
+
+    private record RegistrationDetails(String number, String expiryNotice) {}
 }
